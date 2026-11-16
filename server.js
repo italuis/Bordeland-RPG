@@ -19,40 +19,49 @@ const server = http.createServer((req, res) => {
 const io = new Server(server, { transports: ['websocket', 'polling'], maxHttpBufferSize: 1e7, cors: { origin: '*' } });
 
 const rooms = {};
-const MAX_PLAYERS = 12, IDLE_MS = 30 * 60 * 1000;
+const MAX_PLAYERS = 12, MAX_NPCS = 30, MAX_ITEMS = 8, MAX_EQUIP = 4, IDLE_MS = 30 * 60 * 1000;
 const ATTRS = ['F', 'I', 'A', 'P'];
+const GEAR_ATTRS = ['F', 'I', 'A', 'P', 'DEF', 'DANO'];
 const DICE = [4, 6, 8, 10, 12, 20, 100];
 const SUIT_OF = { F: '♠', I: '♦', A: '♣', P: '♥' };
 const SUITS = ['♠', '♦', '♣', '♥'];
 const RULES = ['none', 'par', 'impar', 'ultimo', 'dobro'];
+const KINDS = ['teste', 'combate'];
 const cl = (n, a, b) => Math.max(a, Math.min(b, Math.round(+n) || 0));
 const str = (s, n) => String(s || '').slice(0, n);
 const rnd = n => crypto.randomInt(1, n + 1);
+const avatarOk = s => typeof s === 'string' && s.startsWith('data:image/') && s.length < 60000 ? s : '';
 
 function clean(s = {}) {
   const a = s.attrs || {};
   return {
-    name: str(s.name, 30), spec: str(s.spec, 40),
-    avatar: typeof s.avatar === 'string' && s.avatar.startsWith('data:image/') && s.avatar.length < 60000 ? s.avatar : '',
+    name: str(s.name, 30), spec: str(s.spec, 40), avatar: avatarOk(s.avatar),
     attrs: { F: cl(a.F, -1, 2), I: cl(a.I, -1, 2), A: cl(a.A, -1, 2), P: cl(a.P, -1, 2) },
     pv: cl(s.pv, 0, 6), em: cl(s.em, 0, 6), dias: cl(s.dias, 0, 99),
     inv: (Array.isArray(s.inv) ? s.inv : []).slice(0, 5).map(x => str(x, 40))
   };
 }
+// Campos que só o servidor controla: PV, EM, Dias e itens (gear)
+function applySheet(p, s) {
+  const keep = { pv: p.sheet.pv, em: p.sheet.em, dias: p.sheet.dias, gear: p.sheet.gear || [] };
+  p.sheet = Object.assign(clean(s), keep);
+}
+const gearBonus = (sheet, attr) => (sheet.gear || []).reduce((t, g) => t + (g.eq && g.attr === attr ? g.bonus : 0), 0);
+const gearDice = sheet => (sheet.gear || []).reduce((t, g) => t + (g.eq ? g.dd : 0), 0);
+
 function code() {
   const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let r; do { r = Array.from({ length: 4 }, () => c[crypto.randomInt(c.length)]).join(''); } while (rooms[r]);
   return r;
 }
 
-/* ---------- evento: estado público ---------- */
-// Regra oculta: só aparece para os jogadores quando já passou, foi revelada ou o evento acabou
 const evPub = e => ({
   title: e.title, phase: e.phase, idx: e.idx, members: e.members, rolls: e.rolls,
   results: e.results, outcome: e.outcome, jokerUsed: e.jokerUsed, revealed: e.revealed,
+  scores: e.scores, hasCombat: e.rounds.some(x => x.kind === 'combate'),
   left: e.deadline ? Math.max(0, e.deadline - Date.now()) : null,
   rounds: e.rounds.map((x, i) => ({
-    name: x.name, attr: x.attr, dc: x.dc, dano: x.dano, spec: x.spec, timer: x.timer,
+    name: x.name, attr: x.attr, dc: x.dc, dano: x.dano, spec: x.spec, timer: x.timer, kind: x.kind,
     hasRule: x.rule !== 'none',
     rule: (i < e.idx || e.phase === 'ended' || (i === e.idx && (e.revealed || e.phase === 'result'))) ? x.rule : null
   }))
@@ -61,11 +70,11 @@ function pub(r) {
   return {
     code: r.code, gmOnline: !!r.gmSock,
     players: Object.values(r.players).map(p => ({ id: p.id, online: p.online, x: p.x, y: p.y, sheet: p.sheet })),
+    npcs: r.npcs,
     pins: r.pins, map: { w: r.map.w, h: r.map.h, cell: r.map.cell }, log: r.log,
     event: r.event ? evPub(r.event) : null
   };
 }
-// Cartas e dados secretos são enviados só para quem deve vê-los
 function sendSecrets(r) {
   const e = r.event;
   for (const p of Object.values(r.players)) {
@@ -87,13 +96,13 @@ const hasSpec = (sheet, rd) => {
 };
 const ruleOK = (rule, total) => rule === 'par' ? total % 2 === 0 : rule === 'impar' ? total % 2 === 1 : true;
 
-/* ---------- evento: lógica ---------- */
-const isAlive = (r, id) => { const p = r.players[id]; return !!p && r.event.members.includes(id) && p.sheet.pv > 0; };
-const aliveIds = r => r.event.members.filter(id => isAlive(r, id));
-const clearT = e => { if (e.tmr) { clearTimeout(e.tmr); e.tmr = null; } };
+/* ---------- evento ---------- */
+const isAlive = (r, id) => { const p = r.players[id]; return !!p && !!r.event && r.event.members.includes(id) && p.sheet.pv > 0; };
+const aliveIds = r => (r.event ? r.event.members : []).filter(id => isAlive(r, id));
+const clearT = e => { if (e && e.tmr) { clearTimeout(e.tmr); e.tmr = null; } };
 
 function finish(r) {
-  const e = r.event;
+  const e = r.event; if (!e) return;
   clearT(e);
   const name = id => (r.players[id] ? r.players[id].sheet.name : '?');
   e.phase = 'ended'; e.deadline = null;
@@ -105,10 +114,10 @@ function finish(r) {
 }
 
 function startRound(r) {
-  const e = r.event;
+  const e = r.event; if (!e) return;
   clearT(e);
   e.idx++; e.phase = 'round'; e.rolls = {}; e.results = null;
-  e.order = []; e.jokerPlay = null; e.revealed = false;
+  e.order = []; e.jokerPlay = null; e.revealed = false; e.npcRolled = {};
   const rd = e.rounds[e.idx];
   if (rd.timer > 0) {
     const myIdx = e.idx;
@@ -121,13 +130,14 @@ function startRound(r) {
 }
 
 function resolveRound(r) {
-  const e = r.event, rd = e.rounds[e.idx], ids = aliveIds(r);
+  const e = r.event; if (!e) return;
+  const rd = e.rounds[e.idx], ids = aliveIds(r);
   clearT(e); e.deadline = null;
   const last = e.order[e.order.length - 1];
   e.results = {};
   for (const id of ids) {
     const p = r.players[id], roll = e.rolls[id];
-    const pass = !!roll && roll.total >= rd.dc && ruleOK(rd.rule, roll ? roll.total : 0);
+    const pass = !!roll && roll.total >= rd.dc && ruleOK(rd.rule, roll.total);
     let dmg = 0;
     if (!pass) {
       dmg = rd.dano * (rd.rule === 'dobro' ? 2 : 1);
@@ -135,9 +145,10 @@ function resolveRound(r) {
       if (e.jokerPlay === id) dmg += 1;
       p.sheet.pv = Math.max(0, p.sheet.pv - dmg);
     }
-    e.results[id] = { name: p.sheet.name, total: roll ? roll.total : null, pass, dmg, out: false };
+    const hit = roll && rd.kind === 'combate' ? roll.dmg : 0;
+    if (hit) e.scores[id] = (e.scores[id] || 0) + hit;
+    e.results[id] = { name: p.sheet.name, total: roll ? roll.total : null, pass, dmg, hit, out: false };
   }
-  // Joker bem-sucedido: os outros vivos também perdem 1 PV
   if (e.jokerPlay && e.results[e.jokerPlay] && e.results[e.jokerPlay].pass) {
     for (const id of ids) {
       if (id === e.jokerPlay || !r.players[id] || r.players[id].sheet.pv <= 0) continue;
@@ -161,7 +172,7 @@ io.on('connection', socket => {
   };
 
   socket.on('create', (_, cb) => {
-    const r = { code: code(), gmToken: crypto.randomUUID(), gmSock: socket.id, players: {}, pins: [], log: [], event: null, map: { img: '', w: 1200, h: 800, cell: 70 }, last: Date.now() };
+    const r = { code: code(), gmToken: crypto.randomUUID(), gmSock: socket.id, players: {}, npcs: [], pins: [], log: [], event: null, map: { img: '', w: 1200, h: 800, cell: 70 }, last: Date.now() };
     rooms[r.code] = r;
     enter(r, 'gm');
     cb && cb({ ok: true, code: r.code, token: r.gmToken });
@@ -172,7 +183,7 @@ io.on('connection', socket => {
     if (!r) return cb && cb({ ok: false, error: 'Sala não encontrada' });
     if (Object.keys(r.players).length >= MAX_PLAYERS) return cb && cb({ ok: false, error: 'Sala cheia (12 jogadores)' });
     const id = crypto.randomUUID(), n = Object.keys(r.players).length;
-    const s = clean(sheet); s.name = str(name, 30) || s.name || 'Jogador';
+    const s = clean(sheet); s.name = str(name, 30) || s.name || 'Jogador'; s.gear = [];
     r.players[id] = { id, sock: socket.id, online: true, x: 60 + (n % 8) * 70, y: 60 + Math.floor(n / 8) * 70, sheet: s };
     enter(r, 'player', id);
     cb && cb({ ok: true, code: r.code, sid: id });
@@ -190,13 +201,11 @@ io.on('connection', socket => {
 
   socket.on('sheet', s => {
     const r = room(), p = r && r.players[socket.data.pid];
-    if (!p) return;
-    const { pv, em, dias } = p.sheet;
-    p.sheet = clean(s); p.sheet.pv = pv; p.sheet.em = em; p.sheet.dias = dias;
-    push(r);
+    if (p) { applySheet(p, s); push(r); }
   });
   socket.on('gm:sheet', ({ id, sheet }) => {
-    const r = gm(); if (r && r.players[id]) { r.players[id].sheet = clean(sheet); push(r); }
+    const r = gm(), p = r && r.players[id];
+    if (p) { applySheet(p, sheet); push(r); }
   });
   socket.on('gm:adjust', ({ id, key, delta }) => {
     const r = gm(), p = r && r.players[id];
@@ -225,18 +234,107 @@ io.on('connection', socket => {
     push(r);
   });
 
-  socket.on('roll', ({ attr, adv }) => {
-    const r = room(); if (!r) return;
-    const p = r.players[socket.data.pid];
-    const v = p && ATTRS.includes(attr) ? p.sheet.attrs[attr] : 0;
-    const raw = Array.from({ length: adv ? 3 : 2 }, () => rnd(6));
-    const kept = raw.slice().sort((a, b) => b - a).slice(0, 2);
-    const total = kept[0] + kept[1] + v;
-    addLog(r, { type: 'attr', who: p ? p.sheet.name : 'Mestre', attr: attr || '', v, adv: !!adv, dice: raw, total, res: tier(total) });
+  /* ----- Itens: só o Mestre escreve bônus; o jogador só equipa ----- */
+  socket.on('gm:item:save', ({ pid, item } = {}) => {
+    const r = gm(), p = r && r.players[pid];
+    if (!p || !item) return;
+    const g = p.sheet.gear || (p.sheet.gear = []);
+    const data = { name: str(item.name, 40) || 'Item', attr: GEAR_ATTRS.includes(item.attr) ? item.attr : 'DEF', bonus: cl(item.bonus, -3, 3), dd: cl(item.dd, 0, 3) };
+    const ex = g.find(x => x.id === item.id);
+    if (ex) Object.assign(ex, data);
+    else { if (g.length >= MAX_ITEMS) return; g.push(Object.assign({ id: crypto.randomUUID(), eq: false }, data)); }
+    push(r);
+  });
+  socket.on('gm:item:del', ({ pid, id } = {}) => {
+    const r = gm(), p = r && r.players[pid];
+    if (!p) return;
+    p.sheet.gear = (p.sheet.gear || []).filter(x => x.id !== id);
+    push(r);
+  });
+  socket.on('item:equip', ({ id, eq } = {}) => {
+    const r = room(), p = r && r.players[socket.data.pid];
+    if (!p) return;
+    const it = (p.sheet.gear || []).find(x => x.id === id);
+    if (!it) return;
+    if (eq && p.sheet.gear.filter(x => x.eq).length >= MAX_EQUIP) return;
+    it.eq = !!eq; push(r);
+  });
+
+  /* ----- NPCs (Mestre) ----- */
+  socket.on('gm:npc:save', ({ npc } = {}, cb) => {
+    const r = gm();
+    if (!r || !npc) return cb && cb({ ok: false, error: 'Sem permissão' });
+    const a = npc.attrs || {};
+    const data = {
+      name: str(npc.name, 40) || 'NPC', desc: str(npc.desc, 300), avatar: avatarOk(npc.avatar),
+      attrs: { F: cl(a.F, -1, 3), I: cl(a.I, -1, 3), A: cl(a.A, -1, 3), P: cl(a.P, -1, 3) },
+      pv: cl(npc.pv, 1, 30), maxpv: cl(npc.pv, 1, 30), atk: cl(npc.atk, -3, 8), dano: cl(npc.dano, 0, 6), def: cl(npc.def, -3, 6)
+    };
+    const ex = r.npcs.find(x => x.id === npc.id);
+    if (ex) Object.assign(ex, data, { pv: Math.min(ex.pv, data.maxpv), maxpv: data.maxpv });
+    else {
+      if (r.npcs.length >= MAX_NPCS) return cb && cb({ ok: false, error: 'Limite de NPCs atingido' });
+      r.npcs.push(Object.assign({ id: crypto.randomUUID(), x: r.map.w / 2, y: r.map.h / 2 }, data, { pv: data.maxpv }));
+    }
+    push(r); cb && cb({ ok: true });
+  });
+  socket.on('gm:npc:del', ({ id } = {}) => {
+    const r = gm(); if (!r) return;
+    r.npcs = r.npcs.filter(n => n.id !== id); push(r);
+  });
+  socket.on('gm:npc:place', ({ id } = {}) => {
+    const r = gm(), n = r && r.npcs.find(x => x.id === id); if (!n) return;
+    n.x = r.map.w / 2; n.y = r.map.h / 2; push(r);
+  });
+  socket.on('gm:npc:move', ({ id, x, y } = {}) => {
+    const r = gm(), n = r && r.npcs.find(x2 => x2.id === id); if (!n) return;
+    n.x = cl(x, 0, r.map.w); n.y = cl(y, 0, r.map.h);
+    socket.to(r.code).emit('npcmove', { id, x: n.x, y: n.y });
+  });
+  socket.on('gm:npc:adjust', ({ id, delta } = {}) => {
+    const r = gm(), n = r && r.npcs.find(x => x.id === id); if (!n) return;
+    n.pv = cl(n.pv + (+delta || 0), 0, n.maxpv); push(r);
+  });
+  // Ataque do NPC contra um jogador: 2d6 + ataque vs defesa 7 + bônus de Defesa dos itens
+  socket.on('gm:npc:attack', ({ npcId, targetId } = {}) => {
+    const r = gm(), n = r && r.npcs.find(x => x.id === npcId), t = r && r.players[targetId];
+    if (!n || !t) return;
+    const raw = [rnd(6), rnd(6)], total = raw[0] + raw[1] + n.atk;
+    const defense = 7 + gearBonus(t.sheet, 'DEF');
+    const hit = total >= defense;
+    const dmg = hit ? n.dano : 0;
+    t.sheet.pv = Math.max(0, t.sheet.pv - dmg);
+    addLog(r, { type: 'npc', who: n.name, attr: '', v: n.atk, dice: raw, total, res: hit ? `ACERTOU ${t.sheet.name} · −${dmg} PV` : `ERROU ${t.sheet.name}` });
+    push(r);
+  });
+  // NPC participa de um combate: a margem sobre a CD vira dano no placar
+  socket.on('gm:npc:combat', ({ id } = {}) => {
+    const r = gm(), e = r && r.event, n = r && r.npcs.find(x => x.id === id);
+    if (!e || !n || e.phase !== 'round') return;
+    const rd = e.rounds[e.idx];
+    if (rd.kind !== 'combate' || e.npcRolled[id]) return;
+    const raw = [rnd(6), rnd(6)], total = raw[0] + raw[1] + n.atk;
+    const dmg = Math.max(0, total - rd.dc);
+    const key = 'npc:' + id;
+    e.scores[key] = (e.scores[key] || 0) + dmg;
+    e.npcRolled[id] = true;
+    addLog(r, { type: 'npc', who: n.name, attr: '', v: n.atk, dice: raw, total, res: `DANO ${dmg} no combate` });
     push(r);
   });
 
-  socket.on('dice:free', ({ sides, count, mod }) => {
+  socket.on('roll', ({ attr, adv } = {}) => {
+    const r = room(); if (!r) return;
+    const p = r.players[socket.data.pid];
+    const gb = p && ATTRS.includes(attr) ? gearBonus(p.sheet, attr) : 0;
+    const v = (p && ATTRS.includes(attr) ? p.sheet.attrs[attr] : 0) + gb;
+    const raw = Array.from({ length: adv ? 3 : 2 }, () => rnd(6));
+    const kept = raw.slice().sort((a, b) => b - a).slice(0, 2);
+    const total = kept[0] + kept[1] + v;
+    addLog(r, { type: 'attr', who: p ? p.sheet.name : 'Mestre', attr: attr || '', v, gear: gb, adv: !!adv, dice: raw, total, res: tier(total) });
+    push(r);
+  });
+
+  socket.on('dice:free', ({ sides, count, mod } = {}) => {
     const r = room(); if (!r || !DICE.includes(+sides)) return;
     const s = +sides, n = cl(count, 1, 20), m = cl(mod, -99, 99);
     const raw = Array.from({ length: n }, () => rnd(s));
@@ -253,18 +351,19 @@ io.on('connection', socket => {
     const rounds = (Array.isArray(ev && ev.rounds) ? ev.rounds : []).slice(0, 10).map(x => ({
       name: str(x.name, 40) || 'Teste', attr: ATTRS.includes(x.attr) ? x.attr : '',
       dc: cl(x.dc, 2, 20), dano: cl(x.dano, 0, 6), spec: str(x.spec, 40),
-      timer: cl(x.timer, 0, 600), rule: RULES.includes(x.rule) ? x.rule : 'none'
+      timer: cl(x.timer, 0, 600), rule: RULES.includes(x.rule) ? x.rule : 'none',
+      kind: KINDS.includes(x.kind) ? x.kind : 'teste'
     }));
     if (!rounds.length) return cb && cb({ ok: false, error: 'Adicione ao menos uma rodada' });
     const members = Object.keys(r.players).filter(id => r.players[id].sheet.pv > 0);
     if (!members.length) return cb && cb({ ok: false, error: 'Nenhum jogador vivo na sala' });
-    const cards = {};
-    members.forEach(id => { cards[id] = { suit: SUITS[rnd(4) - 1] }; });
+    const cards = {}, scores = {};
+    members.forEach(id => { cards[id] = { suit: SUITS[rnd(4) - 1] }; scores[id] = 0; });
     const jokerId = members[rnd(members.length) - 1];
     r.event = {
       title: str(ev.title, 40) || 'GAME', rounds, phase: 'intro', idx: -1, rolls: {}, results: null,
       members, outcome: null, cards, jokerId, jokerUsed: false, jokerPlay: null, order: [],
-      revealed: false, deadline: null, tmr: null
+      revealed: false, deadline: null, tmr: null, scores, npcRolled: {}
     };
     push(r);
     cb && cb({ ok: true });
@@ -298,14 +397,20 @@ io.on('connection', socket => {
     const useJoker = !!joker && e.jokerId === pid && !e.jokerUsed;
     if (useJoker) { e.jokerUsed = true; e.jokerPlay = pid; }
     const adv = useJoker || hasSpec(p.sheet, rd);
-    const bonus = card && rd.attr && card.suit === SUIT_OF[rd.attr] ? 1 : 0;
-    const v = (rd.attr ? p.sheet.attrs[rd.attr] : 0) + bonus;
+    const cardBonus = card && rd.attr && card.suit === SUIT_OF[rd.attr] ? 1 : 0;
+    const gb = rd.attr ? gearBonus(p.sheet, rd.attr) : 0;
+    const v = (rd.attr ? p.sheet.attrs[rd.attr] : 0) + cardBonus + gb;
     const raw = Array.from({ length: adv ? 3 : 2 }, () => rnd(6));
     const kept = raw.slice().sort((a, b) => b - a).slice(0, 2);
     const total = kept[0] + kept[1] + v;
-    e.rolls[pid] = { dice: raw, total, v, adv, bonus, joker: useJoker };
+    let dmg = 0, extra = [];
+    if (rd.kind === 'combate') {
+      extra = Array.from({ length: gearDice(p.sheet) }, () => rnd(6));
+      dmg = Math.max(0, total - rd.dc) + extra.reduce((a, b) => a + b, 0) + gearBonus(p.sheet, 'DANO');
+    }
+    e.rolls[pid] = { dice: raw, total, v, adv, bonus: cardBonus, gear: gb, joker: useJoker, dmg, extra };
     e.order.push(pid);
-    addLog(r, { type: 'event', who: p.sheet.name, attr: rd.attr, v, adv, dice: raw, total, joker: useJoker, res: total >= rd.dc ? 'PASSOU' : 'FALHOU' });
+    addLog(r, { type: 'event', who: p.sheet.name, attr: rd.attr, v, gear: gb, adv, dice: raw, total, joker: useJoker, dmgDice: extra, dmg, combat: rd.kind === 'combate', res: total >= rd.dc ? 'PASSOU' : 'FALHOU' });
     if (aliveIds(r).every(id => e.rolls[id])) resolveRound(r); else push(r);
   });
 

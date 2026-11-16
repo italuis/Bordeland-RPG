@@ -89,6 +89,11 @@ nav button.on{background:var(--ink);color:var(--bg)}
 #ev .num{font-size:72px;font-weight:300;line-height:1;margin:14px 0 6px}
 #ev button{margin-top:22px;padding:18px 40px;font-size:18px}
 #ev .rl{width:100%;max-width:340px;display:flex;justify-content:space-between;gap:8px;padding:9px 0;border-bottom:1px solid var(--line);font-size:15px;text-align:left}
+.rl{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line);font-size:15px;width:100%}
+.red{color:#c00;font-weight:400}
+.av.npc{border-color:#c00;border-width:2px}
+.tok.npc .av{border-color:#c00}
+#ev .rl{max-width:340px}
 </style>
 </head>
 <body>
@@ -122,6 +127,7 @@ nav button.on{background:var(--ink);color:var(--bg)}
       </div>
     </div>
     <div class="view" id="v-evento"></div>
+    <div class="view" id="v-npc"></div>
     <div class="view" id="v-ficha"></div>
     <div class="view" id="v-dados"></div>
   </main>
@@ -156,6 +162,7 @@ sock.on('connect',()=>{conn(true);if(me)sock.emit('rejoin',me,r=>{if(r&&r.ok){me
 sock.on('disconnect',()=>conn(false));
 sock.on('state',s=>{S=s;recvAt=Date.now();render()});
 sock.on('card',c=>{MYCARD=c;if(S)render()});
+sock.on('npcmove',({id,x,y})=>{const n=S&&(S.npcs||[]).find(q=>q.id===id);if(n){n.x=x;n.y=y;const t=document.querySelector(`[data-t="${id}"]`);if(t){t.style.left=x+'px';t.style.top=y+'px'}}});
 sock.on('gmdata',d=>{GMDATA=d;if(S&&tab==='evento')renderEvt(true)});
 sock.on('mapimg',i=>{mapimg=i||'';$('#mimg').src=mapimg;$('#mimg').hidden=!mapimg});
 sock.on('move',({id,x,y})=>{const p=S&&S.players.find(p=>p.id===id);if(p){p.x=x;p.y=y;const t=document.querySelector(`[data-t="${id}"]`);if(t){t.style.left=x+'px';t.style.top=y+'px'}}});
@@ -177,7 +184,7 @@ function enterGame(){
   $('#lobby').hidden=true;$('#game').hidden=false;$('#gcode').textContent=me.code;
   $('#role').textContent=me.role==='gm'?'Mestre':'Jogador';
   $('#tp').hidden=$('#ts').hidden=me.role!=='gm';
-  const tabs=me.role==='gm'?[['mesa','Mesa'],['mapa','Mapa'],['evento','Evento'],['dados','Dados']]:[['mapa','Mapa'],['ficha','Ficha'],['dados','Dados']];
+  const tabs=me.role==='gm'?[['mesa','Mesa'],['mapa','Mapa'],['evento','Evento'],['npc','NPCs'],['dados','Dados']]:[['mapa','Mapa'],['ficha','Ficha'],['dados','Dados']];
   $('#nav').innerHTML=tabs.map(t=>`<button data-t="${t[0]}">${t[1]}</button>`).join('');
   $('#nav').onclick=e=>{const t=e.target.dataset.t;if(t)go(t)};
   go(tabs[0][0]);
@@ -216,8 +223,10 @@ function render(){
   if(!S||!me)return;
   if(tab==='mesa')renderMesa();
   if(tab==='evento')renderEvt();
-  if(tab==='ficha'){const p=player(me.sid);if(p)sheetForm($('#v-ficha'),p.sheet,s=>sock.emit('sheet',s),true)}
+  if(tab==='npc')renderNpc();
+  if(tab==='ficha'){const p=player(me.sid);if(p){sheetForm($('#v-ficha'),p.sheet,s=>sock.emit('sheet',s),true);gearView($('#v-ficha'),p)}}
   if(tab==='dados')renderDice();
+  if(drawId&&player(drawId)&&$('#drawer').classList.contains('open'))gearEd($('#dr-gear'),drawId);
   renderMap();
   renderOverlay();
   if(drawId&&player(drawId)&&$('#drawer').classList.contains('open'))sheetForm($('#dr-body'),player(drawId).sheet,s=>sock.emit('gm:sheet',{id:drawId,sheet:s}));
@@ -232,8 +241,8 @@ function renderMesa(){
   el.onclick=e=>{const a=e.target.dataset.adj,o=e.target.closest('[data-o]');
     if(a){const[i,k,d]=a.split('|');sock.emit('gm:adjust',{id:i,key:k,delta:+d})}else if(o)openDrawer(o.dataset.o)};
 }
-function openDrawer(id){drawId=id;const d=$('#drawer');d.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><h2>Ficha</h2><button id="dx">Fechar</button></div><div id="dr-body"></div>';
-  d.classList.add('open');$('#dx').onclick=()=>d.classList.remove('open');sheetForm($('#dr-body'),player(id).sheet,s=>sock.emit('gm:sheet',{id,sheet:s}))}
+function openDrawer(id){drawId=id;const d=$('#drawer');d.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><h2>Ficha</h2><button id="dx">Fechar</button></div><div id="dr-body"></div><div id="dr-gear"></div>';
+  d.classList.add('open');$('#dx').onclick=()=>d.classList.remove('open');sheetForm($('#dr-body'),player(id).sheet,s=>sock.emit('gm:sheet',{id,sheet:s}));gearEd($('#dr-gear'),id)}
 
 /* ---------- evento: painel do Mestre ---------- */
 const RULE_LABEL={none:'Nenhuma',par:'Só vale rolar par',impar:'Só vale rolar ímpar',ultimo:'Quem rolar por último sofre +1 de dano',dobro:'Dano dobrado'};
@@ -250,7 +259,7 @@ function renderEvt(force){
     <label>Especialidade (vantagem)<input data-f="spec" data-i="${i}" value="${esc(r.spec)}" maxlength="40"></label></div>
     <div class="rowx"><label>Tempo (s, 0 = sem)<input type="number" min="0" max="600" data-f="timer" data-i="${i}" value="${r.timer}"></label>
     <label>Regra oculta<select data-f="rule" data-i="${i}">${Object.keys(RULE_LABEL).map(k=>`<option value="${k}" ${r.rule===k?'selected':''}>${RULE_LABEL[k]}</option>`).join('')}</select></label></div>
-    <button class="ghost" data-rm="${i}" style="margin-top:8px;width:100%">Remover rodada</button></div>`).join('')}
+    <label>Tipo<select data-f="kind" data-i="${i}"><option value="teste" ${r.kind!=='combate'?'selected':''}>Teste (CD)</option><option value="combate" ${r.kind==='combate'?'selected':''}>Combate (placar de dano)</option></select></label><button class="ghost" data-rm="${i}" style="margin-top:8px;width:100%">Remover rodada</button></div>`).join('')}
   <div style="display:flex;gap:8px;margin-top:18px"><button class="ghost" data-add style="flex:1">+ Rodada</button><button class="ghost" data-ex style="flex:1">Exemplo</button></div>
   <button class="full" data-go style="width:100%;margin-top:16px;padding:16px">Iniciar evento</button>
   <p class="warn" id="evErr"></p>`;
@@ -259,7 +268,7 @@ function renderEvt(force){
   el.onchange=el.oninput;
   el.onclick=e=>{const t=e.target;
     if(t.dataset.rm!==undefined){evDraft.splice(+t.dataset.rm,1);renderEvt(true)}
-    if(t.dataset.add!==undefined){evDraft.push({name:'Nova rodada',attr:'F',dc:7,dano:2,spec:'',timer:60,rule:'none'});renderEvt(true)}
+    if(t.dataset.add!==undefined){evDraft.push({name:'Nova rodada',attr:'F',dc:7,dano:2,spec:'',timer:60,rule:'none',kind:'teste'});renderEvt(true)}
     if(t.dataset.ex!==undefined){evDraft=[
       {name:'Corrida',attr:'F',dc:7,dano:2,spec:'Atletismo',timer:60,rule:'none'},
       {name:'Dedução',attr:'I',dc:8,dano:2,spec:'Matemática',timer:90,rule:'par'},
@@ -279,7 +288,7 @@ function evPanel(el){
   el.innerHTML=`<div class="big"><div style="font-size:13px;color:var(--mut)">${lab}</div><div style="font-size:24px;margin-top:6px">【${esc(e.title)}】</div>${rd?`<div style="margin-top:8px">${e.idx+1}/${n} · ${esc(rd.name)} · ${attrName(rd.attr)} · ${rd.dc}+</div>
     ${rd.timer?`<div style="margin-top:8px;font-size:22px" data-tmr></div>`:''}
     ${gmRule&&gmRule!=='none'?`<div class="warn" style="margin-top:8px">Regra secreta: <b style="font-weight:400">${RULE_LABEL[gmRule]}</b> ${e.revealed?'(revelada)':''}</div>`:''}`:''}</div>
-  <div class="log" style="margin-top:14px">${e.members.map(id=>{const p=player(id);if(!p)return'';const alive=p.sheet.pv>0;
+  ${e.hasCombat?lbHtml(e):''}<div class="log" style="margin-top:14px">${e.members.map(id=>{const p=player(id);if(!p)return'';const alive=p.sheet.pv>0;
       const c=GMDATA&&GMDATA.cards.find(c=>c.name===p.sheet.name);
       const st=e.phase==='round'?(e.rolls[id]?'rolou ✓':'aguardando'):(e.phase==='result'&&e.results&&e.results[id]?(e.results[id].pass?'passou':'falhou')+(e.results[id].dmg?' −'+e.results[id].dmg:''):'');
       return `<div><span>${esc(p.sheet.name)} ${c?c.suit:''}${c&&c.joker?' 🃏':''}</span><span>${alive?'PV '+p.sheet.pv:'脱落'}${st?' · '+st:''}</span></div>`}).join('')}</div>
@@ -336,6 +345,7 @@ function renderOverlay(){
     <div style="margin-top:18px;width:100%;max-width:340px">${o.survivors.length?`<div class="sm">生存者 · sobreviventes</div>${o.survivors.map(x=>`<div class="rl"><span>${esc(x)}</span><span>クリア</span></div>`).join('')}`:''}
     ${o.out.length?`<div class="sm" style="margin-top:14px">脱落者 · eliminados</div>${o.out.map(x=>`<div class="rl"><span>${esc(x)}</span><span>脱落</span></div>`).join('')}`:''}</div>`;
   }
+  if(e.hasCombat)h+=lbHtml(e);
   $('#evmid').innerHTML=h;
   tick();
   $('#evmid').onclick=ev=>{if(ev.target.id==='evR')sock.emit('event:roll');if(ev.target.id==='evJ')sock.emit('event:roll',{joker:true})};
@@ -349,6 +359,87 @@ function tick(){
 }
 setInterval(tick,250);
 
+/* ---------- placar, itens e NPCs ---------- */
+const GEAR_LBL={F:'♠ Físico',I:'♦ Intelecto',A:'♣ Agilidade',P:'♥ Psicológico',DEF:'Defesa',DANO:'Dano'};
+let NPCAV='';
+function nameOf(id){
+  if(String(id).startsWith('npc:')){const n=(S&&S.npcs||[]).find(x=>x.id===id.slice(4));return n?n.name:'NPC'}
+  const p=S&&S.players?S.players.find(x=>x.id===id):null;return p?p.sheet.name:'?';
+}
+function lbHtml(e){
+  const sc=e.scores||{};
+  const rows=Object.keys(sc).map(id=>({n:nameOf(id),d:sc[id]||0})).sort((a,b)=>b.d-a.d);
+  if(!rows.length)return'';
+  return `<div style="margin:12px 0"><div class="sm">Placar de dano</div>${rows.map((r,i)=>`<div class="rl"><span>${i===0?'<b class="red">1.</b>':(i+1)+'.'} ${esc(r.n)}</span><span>${r.d}</span></div>`).join('')}</div>`;
+}
+function gearEd(el,pid){
+  if(!el)return;
+  const p=player(pid);
+  if(!p){el.innerHTML='';return}
+  if(el.contains(document.activeElement)&&/INPUT|SELECT/.test(document.activeElement.tagName))return;
+  const g=p.sheet.gear||[];
+  const sel=(v,cls)=>GEAR_ATTRS.map(a=>`<option value="${a}" ${v===a?'selected':''}>${GEAR_LBL[a]}</option>`).join('');
+  el.innerHTML=`<div class="rnd"><div class="sm">Itens · só o Mestre edita os bônus</div>
+  ${g.map(it=>`<div style="margin-top:12px"><div class="rowx"><label>Nome<input data-gn="${it.id}" value="${esc(it.name)}" maxlength="40"></label><label>Atributo<select data-ga="${it.id}">${sel(it.attr)}</select></label></div>
+  <div class="rowx"><label>Bônus<input type="number" min="-3" max="3" data-gb="${it.id}" value="${it.bonus}"></label><label>Dados extra (d6)<input type="number" min="0" max="3" data-gd="${it.id}" value="${it.dd}"></label></div>
+  <div class="qc"><button data-gs="${it.id}">Salvar</button><button class="ghost" data-gx="${it.id}">Remover</button>${it.eq?'<span class="warn">equipado</span>':''}</div></div>`).join('')}
+  <div style="margin-top:14px"><label>Novo item<input id="gnN" placeholder="Katana Afiada" maxlength="40"></label>
+  <div class="rowx"><label>Atributo<select id="gnA">${sel('DEF')}</select></label><label>Bônus<input type="number" id="gnB" min="-3" max="3" value="1"></label></div>
+  <label>Dados extra (d6)<input type="number" id="gnD" min="0" max="3" value="0"></label>
+  <button class="full" id="gnS" style="width:100%;margin-top:12px">Adicionar item</button></div></div>`;
+  el.onclick=ev=>{const t=ev.target;
+    if(t.dataset.gs){const id=t.dataset.gs;sock.emit('gm:item:save',{pid,item:{id,name:el.querySelector(`[data-gn="${id}"]`).value,attr:el.querySelector(`[data-ga="${id}"]`).value,bonus:+el.querySelector(`[data-gb="${id}"]`).value,dd:+el.querySelector(`[data-gd="${id}"]`).value}})}
+    if(t.dataset.gx)sock.emit('gm:item:del',{pid,id:t.dataset.gx});
+    if(t.id==='gnS'){const n=el.querySelector('#gnN').value.trim();if(!n)return;sock.emit('gm:item:save',{pid,item:{name:n,attr:el.querySelector('#gnA').value,bonus:+el.querySelector('#gnB').value,dd:+el.querySelector('#gnD').value}});el.querySelector('#gnN').value=''}
+  };
+}
+function gearView(el,p){
+  let box=el.querySelector('#gearbox');
+  if(!box){box=document.createElement('div');box.id='gearbox';el.appendChild(box)}
+  const g=p.sheet.gear||[];
+  box.innerHTML=`<div class="rnd"><div class="sm">Equipamento · o Mestre define os bônus</div>
+  ${g.length?g.map(it=>`<div class="rl"><span>${esc(it.name)}<br><span class="sm">${GEAR_LBL[it.attr]} ${sg(it.bonus)}${it.dd?' · +'+it.dd+'d6 dano':''}</span></span><button class="${it.eq?'on':''}" data-eq="${it.id}|${it.eq?0:1}">${it.eq?'Equipado':'Equipar'}</button></div>`).join(''):'<p class="sm">Nenhum item</p>'}</div>`;
+  box.onclick=ev=>{const d=ev.target.dataset.eq;if(d){const[id,v]=d.split('|');sock.emit('item:equip',{id,eq:v==='1'})}};
+}
+function renderNpc(force){
+  const el=$('#v-npc');
+  if(!force&&el.contains(document.activeElement)&&/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))return;
+  const list=S.npcs||[],ev=S.event,rd=ev&&ev.idx>=0?ev.rounds[ev.idx]:null;
+  const combat=ev&&ev.phase==='round'&&rd&&rd.kind==='combate';
+  const players=S.players.map(p=>`<option value="${p.id}">${esc(p.sheet.name)}</option>`).join('');
+  el.innerHTML=`<div class="rnd" style="margin-top:0"><div class="sm">Novo NPC / Inimigo</div>
+  <label>Nome<input id="nN" maxlength="40" placeholder="Cão de Guarda Robótico"></label>
+  <div class="attrs">${ATTR.map(a=>`<label>${a.s} ${a.n}<input type="number" min="-1" max="3" value="1" data-na="${a.k}"></label>`).join('')}</div>
+  <div class="rowx"><label>PV<input type="number" id="nPV" min="1" max="30" value="6"></label><label>Ataque (bônus)<input type="number" id="nAtk" min="-3" max="8" value="1"></label></div>
+  <div class="rowx"><label>Dano ao acertar<input type="number" id="nDano" min="0" max="6" value="2"></label><label>Defesa (bônus)<input type="number" id="nDef" min="-3" max="6" value="0"></label></div>
+  <label>Descrição<textarea id="nD" rows="2" maxlength="300"></textarea></label>
+  <label>Imagem<input type="file" id="nImg" accept="image/*"></label>
+  <button class="full" id="nSave" style="width:100%;margin-top:14px">Salvar NPC</button><p class="warn" id="nErr"></p></div>
+  ${list.map(n=>`<div class="card"><div class="av npc" style="${n.avatar?`background-image:url(${n.avatar})`:''}">${n.avatar?'':esc(n.name[0])}</div>
+  <div class="info"><div class="nm">${esc(n.name)}</div>${bar('PV',Math.ceil(n.pv*6/Math.max(1,n.maxpv)))}<div class="sm">${n.pv}/${n.maxpv} PV · Atq ${sg(n.atk)} · Def ${sg(n.def)} · Dano ${n.dano}</div>
+  <div class="sm">F${n.attrs.F} I${n.attrs.I} A${n.attrs.A} P${n.attrs.P}${n.desc?' · '+esc(n.desc):''}</div>
+  <div class="qc"><button data-npc="${n.id}|place">No mapa</button><button data-npc="${n.id}|pv|-1">PV −1</button><button data-npc="${n.id}|pv|1">PV +1</button>${combat?`<button data-npc="${n.id}|comb">No combate</button>`:''}<button class="ghost" data-npc="${n.id}|del">Remover</button></div>
+  <div class="rowx" style="margin-top:8px"><label>Alvo<select data-tgt="${n.id}">${players}</select></label><div style="align-self:end"><button data-npc="${n.id}|atk">Atacar</button></div></div></div></div>`).join('')}`;
+  el.oninput=ev=>{if(ev.target.id==='nImg'){}};
+  el.onchange=ev=>{if(ev.target.id==='nImg'){small(ev.target.files[0],d=>NPCAV=d)}};
+  el.onclick=ev=>{const t=ev.target;
+    if(t.id==='nSave'){
+      const a={};el.querySelectorAll('[data-na]').forEach(i=>a[i.dataset.na]=+i.value);
+      const npc={name:el.querySelector('#nN').value.trim(),attrs:a,pv:+el.querySelector('#nPV').value,atk:+el.querySelector('#nAtk').value,dano:+el.querySelector('#nDano').value,def:+el.querySelector('#nDef').value,desc:el.querySelector('#nD').value,avatar:NPCAV};
+      if(!npc.name)return el.querySelector('#nErr').textContent='Dê um nome ao NPC';
+      sock.emit('gm:npc:save',{npc},r=>{if(!r.ok)el.querySelector('#nErr').textContent=r.error;else{NPCAV='';renderNpc(true)}});
+      return;
+    }
+    if(t.dataset.npc){const[id,act,val]=t.dataset.npc.split('|');
+      if(act==='place')sock.emit('gm:npc:place',{id});
+      if(act==='pv')sock.emit('gm:npc:adjust',{id,delta:+val});
+      if(act==='comb')sock.emit('gm:npc:combat',{id});
+      if(act==='del')sock.emit('gm:npc:del',{id});
+      if(act==='atk'){const tg=el.querySelector(`[data-tgt="${id}"]`).value;if(tg)sock.emit('gm:npc:attack',{npcId:id,targetId:tg})}
+    }
+  };
+}
+
 /* ---------- dados ---------- */
 function bigOf(l){
   if(l.type==='free')return `<div style="font-size:13px;color:var(--mut)">${esc(l.who)} · ${l.count}d${l.sides}${l.mod?sg(l.mod):''}</div><div class="n">${l.total}</div><div>${l.dice.join(' + ')}${l.mod?' '+sg(l.mod):''}</div>`;
@@ -359,7 +450,8 @@ function bigOf(l){
 function logRow(l){
   if(l.type==='free')return [`${esc(l.who)} · ${l.count}d${l.sides}${l.mod?sg(l.mod):''}`,l.total];
   if(l.type==='event')return [`${esc(l.who)} · evento`,`${l.total} · ${l.res}`];
-  return [`${esc(l.who)} ${l.attr?ATTR.find(x=>x.k===l.attr).s:''}${l.adv?' ▲':''}`,`${l.total} · ${l.res}`];
+  if(l.type==='npc')return [`${esc(l.who)} · NPC`,`${l.total} · ${esc(l.res)}`];
+  return [`${esc(l.who)} ${l.attr?ATTR.find(x=>x.k===l.attr).s:''}${l.gear?' '+sg(l.gear)+' item':''}${l.adv?' ▲':''}`,`${l.total} · ${l.res}`];
 }
 function renderDice(force){
   const el=$('#v-dados');
@@ -398,11 +490,12 @@ let mapSig='';
 function renderMap(){
   const m=S.map;st.style.width=m.w+'px';st.style.height=m.h+'px';
   $('#grid').style.cssText=`background-image:linear-gradient(to right,rgba(0,0,0,.2) 1px,transparent 1px),linear-gradient(to bottom,rgba(0,0,0,.2) 1px,transparent 1px);background-size:${m.cell}px ${m.cell}px`;
-  const sig=JSON.stringify([m,S.players.map(p=>[p.id,p.online,p.sheet.name,p.sheet.avatar.length]),S.pins]);
+  const sig=JSON.stringify([m,S.players.map(p=>[p.id,p.online,p.sheet.name,p.sheet.avatar.length]),S.pins,S.npcs]);
   if(sig===mapSig||dragTok)return;
   if(!mapSig)setTimeout(fit,0);mapSig=sig;
   const ts=Math.max(32,m.cell*.8);
   $('#layer').innerHTML=S.players.map(p=>`<div class="tok ${p.online?'':'off'}" data-t="${p.id}" style="left:${p.x}px;top:${p.y}px"><div class="av" style="width:${ts}px;height:${ts}px;font-size:${ts/2.4}px;${p.sheet.avatar?`background-image:url(${p.sheet.avatar})`:''}">${p.sheet.avatar?'':esc((p.sheet.name||'?')[0])}</div><small>${esc(p.sheet.name)}</small></div>`).join('')+
+    (S.npcs||[]).map(n=>`<div class="tok npc" data-t="${n.id}" data-npc="1" style="left:${n.x}px;top:${n.y}px"><div class="av" style="width:${ts}px;height:${ts}px;font-size:${ts/2.4}px;${n.avatar?`background-image:url(${n.avatar})`:''}">${n.avatar?'':esc((n.name||'?')[0])}</div><small>${esc(n.name)}</small></div>`).join('')+
     S.pins.map(n=>`<div class="pin" data-pin="${n.id}" style="left:${n.x}px;top:${n.y}px">📌</div>`).join('');
 }
 const P=new Map();let pan=null,pinch=null,ruler=null,dragTok=null,tap=null;
@@ -417,7 +510,7 @@ vp.addEventListener('pointerdown',e=>{
 });
 vp.addEventListener('pointermove',e=>{
   if(dragTok){const w=wpos(e);dragTok.style.left=w.x+'px';dragTok.style.top=w.y+'px';const id=dragTok.dataset.t;
-    const now=Date.now();if(now-(dragTok.ls||0)>50){dragTok.ls=now;sock.emit('gm:move',{id,x:w.x,y:w.y})}return}
+    const now=Date.now();if(now-(dragTok.ls||0)>50){dragTok.ls=now;sock.emit(dragTok.dataset.npc?'gm:npc:move':'gm:move',{id,x:w.x,y:w.y})}return}
   if(!P.has(e.pointerId))return;P.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pinch&&P.size>=2){const[a,b]=[...P.values()],r=vp.getBoundingClientRect(),d=Math.hypot(a.x-b.x,a.y-b.y);
     const k=Math.max(.1,Math.min(5,pinch.k*d/pinch.d)),cx=(a.x+b.x)/2-r.left,cy=(a.y+b.y)/2-r.top;V.x=cx-(cx-V.x)*k/V.k;V.y=cy-(cy-V.y)*k/V.k;V.k=k;apply();return}
@@ -425,7 +518,7 @@ vp.addEventListener('pointermove',e=>{
   if(pan){V.x=pan.vx+e.clientX-pan.x;V.y=pan.vy+e.clientY-pan.y;apply();if(tap&&Math.hypot(e.clientX-tap.x,e.clientY-tap.y)>6)tap=null}
 });
 const up=e=>{
-  if(dragTok){const w=wpos(e),id=dragTok.dataset.t;sock.emit('gm:move',{id,x:w.x,y:w.y});const p=player(id);if(p){p.x=w.x;p.y=w.y}dragTok=null;mapSig='';return}
+  if(dragTok){const w=wpos(e),id=dragTok.dataset.t;sock.emit(dragTok.dataset.npc?'gm:npc:move':'gm:move',{id,x:w.x,y:w.y});const p=player(id);if(p){p.x=w.x;p.y=w.y}dragTok=null;mapSig='';return}
   P.delete(e.pointerId);if(P.size<2)pinch=null;
   if(tap&&e.type==='pointerup'){
     if(tap.pin)openPin(tap.pin.dataset.pin);
