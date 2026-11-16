@@ -1,0 +1,15 @@
+{
+  "name": "borderland-vtt",
+  "version": "1.0.0",
+  "description": "Mesa virtual multiplayer inspirada em Alice in Borderland",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "socket.io": "^4.8.4"
+  }
+}
