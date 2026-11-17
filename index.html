@@ -257,11 +257,12 @@ function renderMesa(){
   (S.players.length?S.players.map(p=>`<div class="card"><div class="av" data-o="${p.id}" style="${p.sheet.avatar?`background-image:url(${p.sheet.avatar})`:''}">${p.sheet.avatar?'':esc((p.sheet.name||'?')[0])}</div>
     <div class="info"><div class="nm" data-o="${p.id}"><span class="dot ${p.online?'ok':''}"></span>${esc(p.sheet.name)}</div>${bar('PV',p.sheet.pv)}${bar('EM',p.sheet.em)}
     <div class="bar"><span>Dias</span>${p.sheet.dias}</div>
+    <div class="qc">${(p.sheet.conds||[]).map(k=>S.condDefs&&S.condDefs[k]?`<span class="chip">${esc(S.condDefs[k].name)} ${sg(S.condDefs[k].mod)}</span>`:'').join('')}</div>
     <div class="qc">${['pv','em','dias'].map(k=>[-1,1].map(d=>`<button data-adj="${p.id}|${k}|${d}">${k.toUpperCase()} ${d>0?'+':'−'}1</button>`).join('')).join('')}</div></div></div>`).join(''):'<p style="text-align:center;margin-top:60px;color:var(--mut)">Aguardando jogadores.<br>Passe o código <b style="font-weight:400;letter-spacing:.3em">'+S.code+'</b></p>');
   el.onclick=e=>{if(e.target.id==='bExp'){exportMesa();return}const a=e.target.dataset.adj,o=e.target.closest('[data-o]');
     if(a){const[i,k,d]=a.split('|');sock.emit('gm:adjust',{id:i,key:k,delta:+d})}else if(o)openDrawer(o.dataset.o)};
 }
-function openDrawer(id){drawId=id;const d=$('#drawer');d.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><h2>Ficha</h2><button id="dx">Fechar</button></div><div id="dr-body"></div><div id="dr-gear"></div><div id="dr-cond"></div><button class="ghost" id="dk" style="width:100%;margin-top:24px">Expulsar da sala</button>';
+function openDrawer(id){drawId=id;const d=$('#drawer');d.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><h2>Ficha</h2><button id="dx">Fechar</button></div><div id="dr-cond"></div><div id="dr-body"></div><div id="dr-gear"></div><button class="ghost" id="dk" style="width:100%;margin-top:24px">Expulsar da sala</button>';
   d.classList.add('open');$('#dx').onclick=()=>d.classList.remove('open');$('#dk').onclick=()=>{if(confirm('Expulsar este jogador da sala?')){sock.emit('gm:kick',{id});d.classList.remove('open')}};sheetForm($('#dr-body'),player(id).sheet,s=>sock.emit('gm:sheet',{id,sheet:s}));gearEd($('#dr-gear'),id);$('#dr-cond').innerHTML=condBlock(player(id).sheet.conds,'pl',id,true)}
 
 /* ---------- evento: painel do Mestre ---------- */
