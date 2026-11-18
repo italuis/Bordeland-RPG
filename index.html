@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#ffffff">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icon.svg">
+<title>Borderland</title>
+<style>
+:root{--ink:#111;--mut:#8a8a8a;--line:#d9d9d9;--bg:#fff;--surface:#fff;--nav-bg:#fff;--map-bg:#f6f6f6;--accent:#c00;--danger:#c00}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:"Jost","Hiragino Sans","Noto Sans JP","Helvetica Neue",Arial,sans-serif;font-weight:300;letter-spacing:.04em;overscroll-behavior:none}
+body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+[hidden]{display:none!important}
+button,input,select,textarea{font:inherit;color:inherit;letter-spacing:inherit}
+button{background:var(--bg);border:1px solid var(--ink);padding:12px 18px;cursor:pointer;border-radius:0}
+button:active,button.on{background:var(--ink);color:var(--bg)}
+button.ghost{border-color:var(--line)}
+button:disabled{opacity:.3}
+input,select,textarea{width:100%;border:0;border-bottom:1px solid var(--ink);background:transparent;padding:10px 0;border-radius:0;outline:0}
+textarea{border:1px solid var(--ink);padding:10px;resize:none}
+label{display:block;font-size:13px;color:var(--mut);margin:14px 0 0}
+h1,h2{font-weight:300;margin:0}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--mut);margin-right:8px}
+.dot.ok{background:var(--ink)}
+#lobby{min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px 28px}
+#lobby .t1{font-size:26px;line-height:1.7}
+#lobby .t2{font-size:44px;margin:18px 0 8px;letter-spacing:.06em;font-weight:400}
+#lobby form,#lobby .box{width:100%;max-width:340px;text-align:left;margin-top:26px}
+#lobby .or{text-align:center;color:var(--mut);margin:26px 0 0;font-size:13px}
+#lobby button.full{width:100%;margin-top:22px}
+#code{text-transform:uppercase;text-align:center;font-size:28px;letter-spacing:.5em}
+#err{color:var(--ink);min-height:20px;font-size:14px;margin-top:12px;text-align:center}
+#game{height:100dvh;display:flex;flex-direction:column}
+header{background:var(--nav-bg);display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);font-size:14px}
+header b{font-weight:400;letter-spacing:.3em}
+main{flex:1;min-height:0;position:relative}
+.view{position:absolute;inset:0;overflow:auto;padding:18px}
+nav{background:var(--nav-bg);display:flex;border-top:1px solid var(--line)}
+nav button{flex:1;border:0;padding:14px 2px;font-size:14px}
+nav button.on{background:var(--ink);color:var(--bg)}
+.card{border-bottom:1px solid var(--line);padding:14px 0;display:flex;gap:14px;align-items:center}
+.av{width:44px;height:44px;border-radius:50%;border:1px solid var(--ink);display:flex;align-items:center;justify-content:center;background:var(--surface) center/cover;flex:none;overflow:hidden;font-weight:400}
+.card .info{flex:1;min-width:0}
+.card .nm{font-size:16px;cursor:pointer}
+.bar{display:flex;gap:3px;margin-top:6px;align-items:center;font-size:12px;color:var(--mut)}
+.bar i{width:14px;height:6px;border:1px solid var(--ink)}
+.bar i.f{background:var(--ink)}
+.bar span{width:34px}
+.qc{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.qc button{padding:4px 9px;font-size:12px;border-color:var(--line)}
+.attrs{display:grid;grid-template-columns:1fr 1fr;gap:0 22px}
+.stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 16px}
+.rowx{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
+.warn{font-size:12px;color:var(--mut);margin:8px 0 0}
+#drawer{position:fixed;top:0;right:0;bottom:0;width:min(420px,100%);background:var(--surface);border-left:1px solid var(--ink);z-index:30;overflow:auto;padding:calc(18px + env(safe-area-inset-top)) 18px 40px;transform:translateX(100%);transition:transform .2s}
+#drawer.open{transform:none}
+#sheetbg{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surface);border-top:1px solid var(--ink);padding:20px 18px calc(20px + env(safe-area-inset-bottom));transform:translateY(100%);transition:transform .2s;max-height:60dvh;overflow:auto}
+#sheetbg.open{transform:none}
+#vp{position:absolute;inset:0;overflow:hidden;touch-action:none;background:var(--map-bg);cursor:grab}
+#stage{position:absolute;left:0;top:0;transform-origin:0 0;background:#fff;box-shadow:0 0 0 1px var(--ink)}
+#stage img{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;user-select:none}
+#grid{position:absolute;inset:0;pointer-events:none}
+.tok{position:absolute;transform:translate(-50%,-50%);text-align:center;touch-action:none}
+.tok .av{margin:auto;border-width:2px}
+.tok small{display:block;margin-top:2px;font-size:11px;background:var(--surface);border:1px solid var(--ink);padding:0 4px;white-space:nowrap}
+.tok.off{opacity:.45}
+.pin{position:absolute;transform:translate(-50%,-100%);font-size:22px;line-height:1;cursor:pointer}
+#rl{position:absolute;pointer-events:none;inset:0;width:100%;height:100%}
+
+.fab{position:absolute;right:12px;display:flex;flex-direction:column;gap:6px;top:12px;z-index:5}
+.fab button{width:44px;height:44px;padding:0;font-size:18px}
+.big{text-align:center;padding:26px 0;border-bottom:1px solid var(--ink)}
+.big .n{font-size:64px;font-weight:300;line-height:1}
+.chips{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:14px 0}
+.chips button{padding:12px 0}
+.dgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:18px}
+.dgrid button{padding:12px 0}
+.log div{padding:10px 0;border-bottom:1px solid var(--line);font-size:14px;display:flex;justify-content:space-between;gap:8px}
+.rnd{border-top:1px solid var(--line);margin-top:18px;padding-top:4px}
+/* ---- overlay do evento (tela GAME) ---- */
+#ev{position:fixed;inset:0;z-index:100;background:#fff;display:flex;flex-direction:column;color:var(--ink)}
+#ev .bk{height:9vh;min-height:44px;background:#000;flex:none}
+#ev .mid{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px 28px}
+#ev .jp{font-size:22px;line-height:1.9;letter-spacing:.08em}
+#ev .ttl{font-size:40px;margin:14px 0;font-weight:400;letter-spacing:.05em;line-height:1.3}
+#ev .sm{font-size:15px;color:var(--mut);margin:6px 0}
+#ev .num{font-size:72px;font-weight:300;line-height:1;margin:14px 0 6px}
+#ev button{margin-top:22px;padding:18px 40px;font-size:18px}
+#ev .rl{width:100%;max-width:340px;display:flex;justify-content:space-between;gap:8px;padding:9px 0;border-bottom:1px solid var(--line);font-size:15px;text-align:left}
+.rl{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line);font-size:15px;width:100%}
+.red{color:var(--danger);font-weight:400}
+.av.npc{border-color:var(--danger);border-width:2px}
+.tok.npc .av{border-color:var(--danger)}
+#ev .rl{max-width:340px}
+.pin small{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:2px;background:var(--surface);border:1px solid var(--ink);padding:0 5px;font-size:11px;white-space:nowrap;pointer-events:none}
+#rt{position:absolute;background:#111;color:#fff;padding:3px 8px;font-size:13px;pointer-events:none;transform:translate(-50%,-130%);white-space:nowrap}
+#prof{padding:28px 22px;overflow:auto}
+.chip{display:inline-block;border:1px solid var(--ink);padding:3px 8px;font-size:12px;margin:2px}
+#ann{position:fixed;inset:0;z-index:120;background:#fff;display:flex;flex-direction:column;color:#111;cursor:pointer;user-select:none;-webkit-user-select:none}
+#ann[hidden]{display:none!important}
+#ann .bk{height:9vh;min-height:44px;background:#000;flex:none}
+#ann .ttl{font-size:40px;margin:0 0 22px;font-weight:400;letter-spacing:.05em;line-height:1.3}
+#ann .kick{font-size:15px;letter-spacing:.2em;margin:0 0 10px}
+#ann .sfx{font-size:16px;letter-spacing:.2em;margin:-8px 0 26px}
+#ann .sfx .suit{color:#b22222}
+#ann .mid{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;justify-content:center;text-align:center;padding:24px 28px;font-size:22px;line-height:1.9;letter-spacing:.08em;white-space:pre-wrap;overflow:auto}
+/* ---- marcadores ---- */
+.pin{font-size:40px}
+.pin small{font-size:14px;padding:2px 8px}
+#tl.on{background:var(--accent);color:#fff}
+/* ---- zonas ---- */
+#zones{position:absolute;inset:0;pointer-events:none}
+.zone{position:absolute;border-radius:50%;border:2px solid;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.zl{pointer-events:auto;cursor:pointer;background:rgba(255,255,255,.92);color:#111;font-size:12px;letter-spacing:.15em;text-transform:uppercase;padding:2px 8px;white-space:nowrap;max-width:90%;overflow:hidden;text-overflow:ellipsis}
+/* ---- Tema escuro do Mestre (central de comando) ---- */
+body.is-gm{--bg:#121418;--surface:#1a1d24;--nav-bg:#1a1d24;--map-bg:#0d1117;--ink:#e2e8f0;--mut:#8b93a1;--line:#2a2e39;--accent:#ef4444;--danger:#ef4444;color-scheme:dark}
+body.is-gm button:active,body.is-gm button.on,body.is-gm nav button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+body.is-gm button:focus-visible,body.is-gm input:focus,body.is-gm select:focus,body.is-gm textarea:focus{outline:0;border-color:var(--accent)}
+body.is-gm nav{border-top-color:var(--line)}
+</style>
+</head>
+<body>
+
+<section id="lobby">
+  <div class="t1">ようこそ<br>プレイヤー</div>
+  <div class="t2">【GAME】</div>
+  <div style="font-size:13px;color:var(--mut)"><span class="dot" id="cdot"></span><span id="ctxt">conectando…</span></div>
+  <div class="box"><button class="full" id="bCreate">Criar nova sala</button><button class="full ghost" id="bImpMesa">Importar mesa (.json)</button><button class="full ghost" id="bPerfis">Meus personagens</button></div><input type="file" id="fMesa" accept=".json,application/json" hidden><input type="file" id="fFichaJ" accept=".json,application/json" hidden>
+  <div class="or">ou entre em uma sala</div>
+  <form id="fJoin">
+    <input id="code" maxlength="4" placeholder="CÓDIGO" autocomplete="off">
+    <label>Nome<input id="jname" maxlength="30" autocomplete="off"></label>
+    <label>Perfil salvo<select id="jprof"></select></label>
+    <button class="full ghost" type="button" id="bFicha">Usar ficha exportada (.json)</button>
+    <div id="fichaLbl" class="sm"></div>
+    <button class="full" type="submit">Entrar</button>
+  </form>
+  <div id="err"></div>
+</section>
+
+<section id="prof" hidden>
+  <div id="pl-view">
+    <div style="display:flex;justify-content:space-between;align-items:center"><h2>Personagens</h2><button class="ghost" id="pBack">Voltar</button></div>
+    <div style="max-width:420px;margin:18px auto 0"><button class="full" id="pNew" style="width:100%">Novo personagem</button><button class="full ghost" id="pImp" style="width:100%;margin-top:10px">Importar ficha (.json)</button></div>
+    <div id="plist" style="max-width:420px;margin:18px auto 0"></div>
+  </div>
+  <div id="pe-view" hidden style="max-width:420px;margin:0 auto">
+    <div style="display:flex;justify-content:space-between;align-items:center"><h2 id="pTitle">Ficha</h2><button class="ghost" id="pList">Voltar</button></div>
+    <div id="pedit" style="margin-top:12px"></div>
+    <div style="display:flex;gap:8px;margin-top:18px"><button id="pSave" style="flex:1">Salvar</button><button class="ghost" id="pExp" style="flex:1">Exportar (.json)</button></div>
+    <button class="ghost" id="pDel" style="width:100%;margin-top:10px">Excluir personagem</button>
+    <p class="warn" id="pMsg"></p>
+  </div>
+  <input type="file" id="fFicha" accept=".json,application/json" hidden>
+</section>
+<section id="game" hidden>
+  <header><span><span class="dot" id="gdot"></span><b id="gcode"></b></span><span><span id="role"></span> <button id="bLeave" class="ghost" style="padding:6px 10px;font-size:12px">Sair</button></span></header>
+  <main>
+    <div class="view" id="v-mesa"></div>
+    <div class="view" id="v-mapa" style="padding:0">
+      <div id="vp"><div id="stage"><img id="mimg" alt=""><div id="grid"></div><div id="zones"></div><div id="layer"></div></div>
+        <svg id="rl"><line id="rhalo" stroke="#fff" stroke-width="5" x1="0" y1="0" x2="0" y2="0" style="display:none"/><line id="rline" stroke="#111" stroke-width="2" stroke-dasharray="7 5" x1="0" y1="0" x2="0" y2="0" style="display:none"/></svg><div id="rt" hidden></div>
+      </div>
+      <div class="fab">
+        <button id="zi">+</button><button id="zo">−</button><button id="zc">◎</button>
+        <button id="tr">📏</button><button id="tp" hidden>📌</button><button id="tz" hidden>⭕</button><button id="un" hidden title="Desfazer">↶</button><button id="re" hidden title="Refazer">↷</button><button id="tl" hidden title="Lixeira">🗑</button><button id="ts" hidden>⚙</button>
+      </div>
+    </div>
+    <div class="view" id="v-evento"></div>
+    <div class="view" id="v-npc"></div>
+    <div class="view" id="v-anuncio"></div>
+    <div class="view" id="v-ficha"></div>
+    <div class="view" id="v-dados"></div>
+    <div class="view" id="v-inventario"></div>
+  </main>
+  <nav id="nav"></nav>
+</section>
+
+<div id="ev" hidden><div class="bk"></div><div class="mid" id="evmid"></div><div class="bk"></div></div>
+<div id="ann" hidden></div>
+<aside id="drawer"></aside>
+<div id="sheetbg"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ATTR=[{k:'F',s:'♠',n:'Físico'},{k:'I',s:'♦',n:'Intelecto'},{k:'A',s:'♣',n:'Agilidade'},{k:'P',s:'♥',n:'Psicológico'}];
+const DICE=[4,6,8,10,12,20,100];
+const attrName=k=>{const a=ATTR.find(x=>x.k===k);return a?a.s+' '+a.n:'Sem atributo'};
+const blank=()=>({name:'',spec:'',avatar:'',attrs:{F:2,I:1,A:0,P:-1},pv:6,em:6,dias:3,inv:['','','','','']});
+const sg=v=>v>0?'+'+v:''+v;
+const hasSpec=(sheet,rd)=>{const a=(sheet.spec||'').toLowerCase().trim(),b=(rd.spec||'').toLowerCase().trim();return !!a&&!!b&&(a.includes(b)||b.includes(a))};
+let S=null,me=null,mapimg='',tab='',tool='',V={x:0,y:0,k:1},sock;
+let dSides=20,dQty=1,dMod=0,rAttr='',rAdv=false,drawId=null;
+let evTitle='GAME',evDraft=[];
+let MYCARD=null,GMDATA=null,recvAt=0;
+try{me=JSON.parse(localStorage.getItem('sess')||'null')}catch(e){}
+const profs=()=>{try{return JSON.parse(localStorage.getItem('profiles')||'[]')}catch(e){return[]}};
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
+
+/* ---------- conexão ---------- */
+sock=io({transports:['websocket','polling']});
+function conn(ok){['#cdot','#gdot'].forEach(s=>$(s).classList.toggle('ok',ok));$('#ctxt').textContent=ok?'servidor conectado':'sem conexão…'}
+sock.on('connect',()=>{conn(true);if(me)sock.emit('rejoin',me,r=>{if(r&&r.ok){me.role=r.role;enterGame()}else{localStorage.removeItem('sess');me=null;$('#lobby').hidden=false;$('#game').hidden=true}})});
+sock.on('disconnect',()=>conn(false));
+sock.on('state',s=>{S=s;recvAt=Date.now();render()});
+sock.on('card',c=>{MYCARD=c;if(S)render()});
+sock.on('npcmove',({id,x,y})=>{const n=S&&(S.npcs||[]).find(q=>q.id===id);if(n){n.x=x;n.y=y;const t=document.querySelector(`[data-t="${id}"]`);if(t){t.style.left=x+'px';t.style.top=y+'px'}}});
+sock.on('gmdata',d=>{GMDATA=d;if(S&&tab==='evento')renderEvt(true)});
+sock.on('mapimg',i=>{mapimg=i||'';$('#mimg').src=mapimg;$('#mimg').hidden=!mapimg});
+sock.on('move',({id,x,y})=>{const p=S&&S.players.find(p=>p.id===id);if(p){p.x=x;p.y=y;const t=document.querySelector(`[data-t="${id}"]`);if(t){t.style.left=x+'px';t.style.top=y+'px'}}});
+
+/* ---------- lobby ---------- */
+const opts=()=>{const l=profs();$('#jprof').innerHTML='<option value="">Novo personagem</option>'+l.map((p,i)=>`<option value="${i}">${esc(p.name||'Sem nome')}</option>`).join('')};opts();
+$('#jprof').onchange=()=>{const p=profs()[$('#jprof').value];if(p)$('#jname').value=p.name};
+$('#code').oninput=e=>e.target.value=e.target.value.toUpperCase();
+const err=t=>$('#err').textContent=t||'';
+$('#bCreate').onclick=()=>sock.emit('create',null,r=>{me={role:'gm',code:r.code,token:r.token};save();enterGame()});
+let pendingFicha=null;
+$('#bFicha').onclick=()=>$('#fFichaJ').click();
+$('#fFichaJ').onchange=e=>{
+  const f=e.target.files[0];e.target.value='';if(!f)return;
+  readFile(f,d=>{
+    if(!d||d.app!=='borderland-ficha'||!d.sheet||!d.claim)return err('Arquivo de ficha inválido');
+    pendingFicha=d;$('#fichaLbl').textContent='Ficha carregada: '+(d.sheet.name||'personagem');
+  });
+};
+$('#fJoin').onsubmit=e=>{e.preventDefault();err();
+  const pf=pendingFicha;
+  const i=$('#jprof').value,sheet=pf?pf.sheet:(i!==''?profs()[i]:blank()),name=$('#jname').value.trim()||sheet.name;
+  if($('#code').value.length<4)return err('Digite o código de 4 letras');
+  if(!name)return err('Digite seu nome');
+  sock.emit('join',{code:$('#code').value,name,sheet,claim:pf?pf.claim:''},r=>{if(!r.ok)return err(r.error);me={role:'player',code:r.code,sid:r.sid,claim:r.claim};save();pendingFicha=null;enterGame()});
+};
+const save=()=>localStorage.setItem('sess',JSON.stringify(me));
+
+function enterGame(){
+  $('#lobby').hidden=true;$('#game').hidden=false;$('#gcode').textContent=me.code;
+  $('#role').textContent=me.role==='gm'?'Mestre':'Jogador';
+  $('#tp').hidden=$('#ts').hidden=$('#tz').hidden=$('#un').hidden=$('#re').hidden=$('#tl').hidden=me.role!=='gm';
+  const tabs=me.role==='gm'?[['mesa','Mesa'],['mapa','Mapa'],['evento','Evento'],['npc','NPCs'],['anuncio','Anúncio'],['dados','Dados']]:[['mapa','Mapa'],['ficha','Ficha'],['inventario','Inventário'],['dados','Dados']];
+  $('#nav').innerHTML=tabs.map(t=>`<button data-t="${t[0]}">${t[1]}</button>`).join('');
+  $('#nav').onclick=e=>{const t=e.target.dataset.t;if(t)go(t)};
+  go(tabs[0][0]);
+}
+function go(t){tab=t;document.querySelectorAll('.view').forEach(v=>v.hidden=v.id!=='v-'+t);
+  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+  if(t==='mapa')setTimeout(fit,30);render()}
+$('#gcode').onclick=()=>navigator.clipboard&&navigator.clipboard.writeText(me.code);
+
+/* ---------- ficha ---------- */
+function sheetForm(el,s,commit,canSave){
+  if(el.contains(document.activeElement)&&el.dataset.ready)return;
+  el.dataset.ready=1;
+  const pm=Object.values(s.attrs).slice().sort().join()==='-1,0,1,2';
+  el.innerHTML=`<div style="display:flex;gap:14px;align-items:center"><div class="av" style="width:64px;height:64px;${s.avatar?`background-image:url(${s.avatar})`:''}">${s.avatar?'':esc((s.name||'?')[0])}</div><label style="margin:0;flex:1">Foto<input type="file" accept="image/*" data-av></label></div>
+  <label>Nome<input data-k="name" value="${esc(s.name)}" maxlength="30"></label>
+  <label>Especialidade (rola com vantagem)<input data-k="spec" value="${esc(s.spec)}" maxlength="40" placeholder="Medicina, Atletismo…"></label>
+  <div class="attrs">${ATTR.map(a=>`<label>${a.s} ${a.n}<select data-a="${a.k}">${[2,1,0,-1].map(v=>`<option value="${v}" ${s.attrs[a.k]==v?'selected':''}>${sg(v)}</option>`).join('')}</select></label>`).join('')}</div>
+  <p class="warn">${pm?'Distribuição: +2, +1, +0, −1':'Use cada valor (+2, +1, +0, −1) uma vez'}</p>
+  <div class="stats"><label>PV<input type="number" data-k="pv" value="${s.pv}" disabled></label><label>Estresse<input type="number" data-k="em" value="${s.em}" disabled></label><label>Dias de visto<input type="number" data-k="dias" value="${s.dias}" disabled></label></div>
+  <label>Inventário (5 espaços)</label>${[0,1,2,3,4].map(i=>`<input data-i="${i}" value="${esc(s.inv[i]||'')}" maxlength="40" placeholder="${i+1}">`).join('')}
+  ${canSave?'<button class="full" style="width:100%;margin-top:24px" data-save>Salvar perfil neste aparelho</button>':''}`;
+  const read=()=>{const o=JSON.parse(JSON.stringify(s));
+    el.querySelectorAll('[data-k]:not([disabled])').forEach(i=>o[i.dataset.k]=i.type==='number'?+i.value||0:i.value);
+    el.querySelectorAll('[data-a]').forEach(i=>o.attrs[i.dataset.a]=+i.value);
+    o.inv=[...el.querySelectorAll('[data-i]')].map(i=>i.value);return o};
+  el.onchange=e=>{if(e.target.dataset.av!==undefined){small(e.target.files[0],d=>{const o=read();o.avatar=d;el.dataset.ready='';commit(o)});return}el.dataset.ready='';commit(read())};
+  const sv=el.querySelector('[data-save]');if(sv)sv.onclick=()=>{const o=read(),l=profs(),i=l.findIndex(p=>p.name===o.name);if(i>=0)l[i]=o;else l.push(o);localStorage.setItem('profiles',JSON.stringify(l));opts();sv.textContent='Perfil salvo'};
+}
+function small(f,cb){if(!f)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=c.height=96;const x=c.getContext('2d'),m=Math.min(im.width,im.height);x.drawImage(im,(im.width-m)/2,(im.height-m)/2,m,m,0,0,96,96);cb(c.toDataURL('image/jpeg',.7))};im.src=r.result};r.readAsDataURL(f)}
+
+/* ---------- render ---------- */
+const player=id=>S.players.find(p=>p.id===id);
+const bar=(l,v)=>`<div class="bar"><span>${l}</span>${[1,2,3,4,5,6].map(i=>`<i class="${i<=v?'f':''}"></i>`).join('')}</div>`;
+function render(){
+  document.body.classList.toggle('is-gm',!!me&&me.role==='gm');
+  if(!S||!me)return;
+  if(tab==='mesa')renderMesa();
+  if(tab==='evento')renderEvt();
+  if(tab==='npc')renderNpc();
+  if(tab==='anuncio')renderAnnTab();
+  if(tab==='ficha'){const p=player(me.sid);if(p){sheetForm($('#v-ficha'),p.sheet,s=>sock.emit('sheet',s),true);condView($('#v-ficha'),p)}}
+  if(tab==='inventario'){const p=player(me.sid);if(p)invView($('#v-inventario'),p)}
+  if(tab==='dados')renderDice();
+  if(drawId&&player(drawId)&&$('#drawer').classList.contains('open'))gearEd($('#dr-gear'),drawId);
+  if(drawId&&player(drawId)&&$('#drawer').classList.contains('open')&&!(document.activeElement&&$('#dr-cond').contains(document.activeElement)&&/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)))$('#dr-cond').innerHTML=needBlock(player(drawId),true)+saveBlock(player(drawId),true)+condBlock(player(drawId).sheet.conds,'pl',drawId,true);
+  if(mapsOpen){const sb=$('#sheetbg');if(!sb.classList.contains('open'))mapsOpen=false;else if(!sb.contains(document.activeElement))openMaps()}
+  if(condId){const sb=$('#sheetbg'),pl=player(condId);if(!pl||!sb.classList.contains('open')){condId=null}else if(!sb.contains(document.activeElement))sb.innerHTML=condSheet(pl)}
+  renderMap();
+  renderOverlay();
+  renderAnn();
+  if(drawId&&player(drawId)&&$('#drawer').classList.contains('open'))sheetForm($('#dr-body'),player(drawId).sheet,s=>sock.emit('gm:sheet',{id:drawId,sheet:s}));
+}
+function renderMesa(){
+  const el=$('#v-mesa');if(el.contains(document.activeElement)&&document.activeElement.tagName==='INPUT')return;
+  el.innerHTML=`<button class="ghost" id="bExp" style="width:100%;margin-bottom:12px">Salvar / exportar mesa (.json)</button><p style="color:var(--mut);font-size:13px;margin:0 0 6px">${S.players.length}/12 jogadores · código <b style="font-weight:400">${S.code}</b></p>`+
+  (S.players.length?S.players.map(p=>`<div class="card"><div class="av" data-o="${p.id}" style="${p.sheet.avatar?`background-image:url(${p.sheet.avatar})`:''}">${p.sheet.avatar?'':esc((p.sheet.name||'?')[0])}</div>
+    <div class="info"><div class="nm" data-o="${p.id}"><span class="dot ${p.online?'ok':''}"></span>${esc(p.sheet.name)}</div>${bar('PV',p.sheet.pv)}${bar('EM',p.sheet.em)}
+    <div class="bar"><span>Dias</span>${p.sheet.dias}</div>
+    <div class="qc">${(p.sheet.conds||[]).map(k=>S.condDefs&&S.condDefs[k]?`<span class="chip">${esc(S.condDefs[k].name)} ${sg(S.condDefs[k].mod)}</span>`:'').join('')}<button class="ghost" data-cond="${p.id}" style="padding:4px 9px;font-size:12px">Condições</button><button class="ghost" data-o="${p.id}" data-items="1" style="padding:4px 9px;font-size:12px">Itens</button></div>
+    <div class="qc">${['pv','em','dias'].map(k=>[-1,1].map(d=>`<button data-adj="${p.id}|${k}|${d}">${k.toUpperCase()} ${d>0?'+':'−'}1</button>`).join('')).join('')}</div></div></div>`).join(''):'<p style="text-align:center;margin-top:60px;color:var(--mut)">Aguardando jogadores.<br>Passe o código <b style="font-weight:400;letter-spacing:.3em">'+S.code+'</b></p>');
+  el.onclick=e=>{if(e.target.id==='bExp'){exportMesa();return}if(e.target.dataset.cond){openCond(e.target.dataset.cond);return}const a=e.target.dataset.adj,o=e.target.closest('[data-o]');
+    if(a){const[i,k,d]=a.split('|');sock.emit('gm:adjust',{id:i,key:k,delta:+d})}else if(o){openDrawer(o.dataset.o);if(o.dataset.items!==undefined){setTimeout(()=>{const g=$('#dr-gear');if(g)g.scrollIntoView({behavior:'smooth',block:'start'})},60)}}};
+}
+function openDrawer(id){drawId=id;const d=$('#drawer');d.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><h2>Ficha</h2><button id="dx">Fechar</button></div><div id="dr-cond"></div><div id="dr-body"></div><div id="dr-gear"></div><button class="ghost" id="dk" style="width:100%;margin-top:24px">Expulsar da sala</button>';
+  d.classList.add('open');$('#dx').onclick=()=>d.classList.remove('open');$('#dk').onclick=()=>{if(confirm('Expulsar este jogador da sala?')){sock.emit('gm:kick',{id});d.classList.remove('open')}};sheetForm($('#dr-body'),player(id).sheet,s=>sock.emit('gm:sheet',{id,sheet:s}));gearEd($('#dr-gear'),id);$('#dr-cond').innerHTML=needBlock(player(id),true)+saveBlock(player(id),true)+condBlock(player(id).sheet.conds,'pl',id,true)}
+
+/* ---------- evento: painel do Mestre ---------- */
+const RULE_LABEL={none:'Nenhuma',par:'Só vale rolar par',impar:'Só vale rolar ímpar',ultimo:'Quem rolar por último sofre +1 de dano',dobro:'Dano dobrado'};
+const SUIT_OF={F:'♠',I:'♦',A:'♣',P:'♥'};
+function renderEvt(force){
+  const el=$('#v-evento');
+  if(!force&&el.contains(document.activeElement)&&/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))return;
+  if(S.event)return evPanel(el);
+  const pr=getPresets();
+  el.innerHTML=`<label>Título do evento<input id="evT" maxlength="40" value="${esc(evTitle)}"></label>
+  <label>Naipe da arena (tema)<select id="evS"><option value="">Nenhum</option>${['♠','♦','♣','♥'].map(s=>`<option value="${s}" ${evSuit===s?'selected':''}>${s} ${SUIT_LBL[s]}</option>`).join('')}</select></label>
+  <p class="warn">${evSuit?esc('Arena de '+SUIT_LBL[evSuit]+': '+ARENA_TXT[evSuit]):'Sem efeito de naipe.'}</p>
+  ${evDraft.map((r,i)=>roundRow(r,i)).join('')}
+  <div style="display:flex;gap:8px;margin-top:18px"><button class="ghost" data-add style="flex:1">+ Rodada</button><button class="ghost" data-ex style="flex:1">Exemplo</button></div>
+  <button class="full" data-go style="width:100%;margin-top:16px;padding:16px">Iniciar evento</button>
+  <button class="ghost" data-save style="width:100%;margin-top:8px">Salvar como preset</button>
+  <p class="warn" id="evErr"></p>
+  <div class="rnd"><div class="sm">Eventos salvos (neste aparelho)</div>${pr.length?pr.map((p,i)=>`<div class="rl"><span>${esc(p.name)}<br><span class="sm">${p.rounds.length} rodadas${p.suit?' · '+p.suit:''}</span></span><span style="white-space:nowrap"><button data-fire="${i}">Disparar</button> <button class="ghost" data-load="${i}">Editar</button> <button class="ghost" data-pdel="${i}">×</button></span></div>`).join(''):'<p class="sm">Nenhum preset salvo</p>'}</div>`;
+  el.oninput=setF;
+  el.onchange=setF;
+  el.onclick=ev=>{const t=ev.target,d=t.dataset;
+    if(d.rm!==undefined){evDraft.splice(+d.rm,1);return renderEvt(true)}
+    if(d.add!==undefined){evDraft.push({name:'Nova rodada',kind:'teste',attr:'F',dc:7,dano:2,spec:'',timer:60,rule:'none'});return renderEvt(true)}
+    if(d.ex!==undefined){evDraft=exemplo();evTitle='GAME';return renderEvt(true)}
+    if(d.go!==undefined)return startEv(evTitle,evSuit,evDraft);
+    if(d.save!==undefined){const nm=prompt('Nome do preset');if(!nm||!nm.trim())return;const l=getPresets();l.push({id:Date.now().toString(36),name:nm.trim().slice(0,40),title:evTitle,suit:evSuit,rounds:JSON.parse(JSON.stringify(evDraft))});setPresets(l);return renderEvt(true)}
+    if(d.fire!==undefined){const p=getPresets()[+d.fire];if(p)return startEv(p.title,p.suit,p.rounds)}
+    if(d.load!==undefined){const p=getPresets()[+d.load];if(p){evTitle=p.title;evSuit=p.suit||'';evDraft=JSON.parse(JSON.stringify(p.rounds));renderEvt(true)}return}
+    if(d.pdel!==undefined){if(confirm('Excluir este preset?')){const l=getPresets();l.splice(+d.pdel,1);setPresets(l);renderEvt(true)}}
+  };
+}
+const SUIT_LBL={'♠':'Espadas','♦':'Ouros','♣':'Paus','♥':'Copas'};
+const ARENA_TXT={'♠':'+1 em testes de Físico','♦':'+1 vida em enigmas','♣':'+1 em testes de Agilidade','♥':'−1 em todos os testes (tensão)'};
+const KIND_LBL={teste:'Teste (CD)',enigma:'Enigma (resposta com vidas)'};
+let evSuit='';
+const getPresets=()=>{try{return JSON.parse(localStorage.getItem('presets')||'[]')}catch(e){return[]}};
+const setPresets=l=>localStorage.setItem('presets',JSON.stringify(l));
+const exemplo=()=>[
+  {name:'Corrida',kind:'teste',attr:'F',dc:7,dano:2,spec:'Atletismo',timer:60,rule:'none'},
+  {name:'Dedução',kind:'teste',attr:'I',dc:8,dano:2,spec:'Matemática',timer:90,rule:'par'},
+  {name:'Enigma',kind:'enigma',q:'Qual é o próximo número?\n2, 4, 8, 16, ?',ans:'32',ci:true,lives:3,dano:2,timer:60,rule:'none',spec:'',attr:'',dc:7},
+  {name:'Pontaria',kind:'teste',attr:'A',dc:7,dano:2,spec:'Tiro',timer:45,rule:'ultimo'}
+];
+function roundRow(r,i){
+  const k=r.kind||'teste';
+  const enig=k==='enigma';
+  const rw=r.reward||{type:'none',attr:'F',amount:0};
+  return `<div class="rnd"><label>Rodada ${i+1}<input data-f="name" data-i="${i}" value="${esc(r.name)}" maxlength="40"></label>
+  <label>Tipo<select data-f="kind" data-i="${i}">${Object.keys(KIND_LBL).map(x=>`<option value="${x}" ${k===x?'selected':''}>${KIND_LBL[x]}</option>`).join('')}</select></label>
+  ${enig?`<label>Pergunta do enigma<textarea rows="3" data-f="q" data-i="${i}" maxlength="600">${esc(r.q||'')}</textarea></label>
+  <div class="rowx"><label>Resposta exata<input data-f="ans" data-i="${i}" value="${esc(r.ans||'')}" maxlength="80"></label>
+  ${r.carry==='carry'?'<div class="sm" style="align-self:end">Vidas: as que sobraram do enigma anterior</div></div>':'<label>Vidas (tentativas)<input type="number" min="1" max="9" data-f="lives" data-i="${i}" value="${r.lives||3}"></label></div>'}
+  <label>Maiúsculas importam?<select data-f="ci" data-i="${i}"><option value="1" ${r.ci!==false?'selected':''}>Não</option><option value="0" ${r.ci===false?'selected':''}>Sim</option></select></label>
+  <label>Modo de tentativas<select data-f="mode" data-i="${i}"><option value="multi" ${r.mode!=='single'?'selected':''}>Várias tentativas (cada erro −1 vida)</option><option value="single" ${r.mode==='single'?'selected':''}>Uma tentativa: errou, já era</option></select></label>
+  <label>Vidas deste enigma<select data-f="carry" data-i="${i}"><option value="reset" ${r.carry!=='carry'?'selected':''}>Reiniciar (vidas cheias)</option><option value="carry" ${r.carry==='carry'?'selected':''}>Manter as vidas do enigma anterior</option></select></label>
+  <label>Recompensa ao acertar<select data-f="rwType" data-i="${i}"><option value="none" ${rw.type==='none'?'selected':''}>Nenhuma</option><option value="lives" ${rw.type==='lives'?'selected':''}>+ vidas (tentativas) no próximo enigma</option><option value="pv" ${rw.type==='pv'?'selected':''}>+ PV</option><option value="attr" ${rw.type==='attr'?'selected':''}>+ bônus de atributo (resto do evento)</option></select></label>
+  <div class="rowx"><label>Atributo (se bônus)<select data-f="rwAttr" data-i="${i}">${['F','I','A','P'].map(a=>`<option value="${a}" ${rw.attr===a?'selected':''}>${attrName(a)}</option>`).join('')}</select></label><label>Quantidade<input type="number" min="0" max="3" data-f="rwAmt" data-i="${i}" value="${rw.amount}"></label></div>`
+  :`<div class="rowx"><label>Atributo<select data-f="attr" data-i="${i}">${['','F','I','A','P'].map(a=>`<option value="${a}" ${r.attr===a?'selected':''}>${a?attrName(a):'Sem atributo'}</option>`).join('')}</select></label>
+  <label>Dificuldade (2d6 ≥)<input type="number" min="2" max="20" data-f="dc" data-i="${i}" value="${r.dc}"></label></div>`}
+  <div class="rowx">${enig?'':`<label>Dano na falha (PV)<input type="number" min="0" max="6" data-f="dano" data-i="${i}" value="${r.dano}"></label>`}
+  <label>Especialidade (vantagem)<input data-f="spec" data-i="${i}" value="${esc(r.spec||'')}" maxlength="40"></label></div>
+  <div class="rowx"><label>Tempo (s, 0 = sem)<input type="number" min="0" max="600" data-f="timer" data-i="${i}" value="${r.timer}"></label>
+  <label>Regra oculta<select data-f="rule" data-i="${i}">${Object.keys(RULE_LABEL).map(x=>`<option value="${x}" ${r.rule===x?'selected':''}>${RULE_LABEL[x]}</option>`).join('')}</select></label></div>
+  <button class="ghost" data-rm="${i}" style="margin-top:8px;width:100%">Remover rodada</button></div>`;
+}
+function setF(e){
+  const t=e.target,d=t.dataset;
+  if(t.id==='evT'){evTitle=t.value;return}
+  if(t.id==='evS'){evSuit=t.value;return renderEvt(true)}
+  if(d.f===undefined)return;
+  const r=evDraft[+d.i];if(!r)return;
+  if(d.f==='kind'){r.kind=t.value;return renderEvt(true)}
+  if(d.f==='carry'){r.carry=t.value;return renderEvt(true)}
+  if(d.f.startsWith('rw')){
+    r.reward=Object.assign({type:'none',attr:'F',amount:0},r.reward||{});
+    if(d.f==='rwType'){r.reward.type=t.value;return renderEvt(true)}
+    if(d.f==='rwAttr')r.reward.attr=t.value;
+    if(d.f==='rwAmt')r.reward.amount=+t.value||0;
+    return;
+  }
+  if(d.f==='ci'){r.ci=t.value==='1';return}
+  r[d.f]=['dc','dano','timer','lives'].includes(d.f)?+t.value:t.value;
+}
+function startEv(title,suit,rounds){
+  if(!rounds||!rounds.length){const x=$('#evErr');if(x)x.textContent='Adicione ao menos uma rodada';return}
+  sock.emit('gm:event:start',{title,suit,rounds},r=>{const x=$('#evErr');if(x&&r&&!r.ok)x.textContent=r.error});
+}
+function evPanel(el){
+  const e=S.event,n=e.rounds.length,rd=e.idx>=0?e.rounds[e.idx]:null;
+  const gr=GMDATA&&rd?GMDATA.rules[e.idx]:null;
+  const ans=GMDATA&&GMDATA.answers&&rd?GMDATA.answers[e.idx]:'';
+  const solved=e.solved||[],lives=e.lives||{},subs=e.subs||{};
+  const lab={intro:'Aguardando início',round:'Rodada em andamento',result:'Resultado da rodada',ended:'Evento encerrado'}[e.phase];
+  const btn={intro:'Começar rodada 1',round:rd&&rd.kind==='enigma'?'Revelar resultados':'Resolver rodada agora',result:e.idx+1<n?'Próxima rodada':'Finalizar evento',ended:'Fechar evento'}[e.phase];
+  el.innerHTML=`<div class="big"><div style="font-size:13px;color:var(--mut)">${lab}${e.suit?' · arena '+e.suit+' '+SUIT_LBL[e.suit]:''}</div><div style="font-size:24px;margin-top:6px">【${esc(e.title)}】</div>
+  ${rd?`<div style="margin-top:8px">${e.idx+1}/${n} · ${esc(rd.name)} · ${rd.kind==='enigma'?'enigma':attrName(rd.attr)+' · '+rd.dc+'+'}</div>`:''}
+  ${rd&&rd.kind==='enigma'?`<div class="warn" style="margin-top:8px;white-space:pre-wrap">Pergunta: ${esc(rd.q)}<br>Resposta: <b style="font-weight:400">${esc(ans)}</b></div>`:''}
+  ${rd&&rd.timer?`<div style="margin-top:8px;font-size:22px" data-tmr></div>`:''}
+  ${gr&&gr!=='none'?`<div class="warn" style="margin-top:8px">Regra secreta: <b style="font-weight:400">${RULE_LABEL[gr]}</b> ${e.revealed?'(revelada)':''}</div>`:''}</div>
+  ${e.atRisk?`<p class="warn" style="color:#c00">Se revelar agora, ${e.atRisk} jogador(es) serão eliminados (sem vidas ou último colocado).</p>`:''}
+  <div class="log" style="margin-top:14px">${e.members.map(id=>{const p=player(id);if(!p)return'';const alive=p.sheet.pv>0;
+    const c=GMDATA&&GMDATA.cards?GMDATA.cards.find(x=>x.name===p.sheet.name):null;
+    let st='';
+    if(e.phase==='round'){st=rd&&rd.kind==='enigma'?(subs[id]?'enviou ('+subs[id]+')':'aguardando'):(e.rolls[id]?'rolou ✓':'aguardando')}
+    else if(e.phase==='result'&&e.results&&e.results[id])st=(e.results[id].rank?'#'+e.results[id].rank+' ':'')+(e.results[id].pass?'passou':'falhou')+(e.results[id].dmg?' −'+e.results[id].dmg:'');
+    return `<div><span>${esc(p.sheet.name)} ${c?c.suit:''}${c&&c.joker?' 🃏':''}</span><span>${alive?'PV '+p.sheet.pv:'脱落'}${st?' · '+st:''}</span></div>`}).join('')}</div>
+  ${e.phase==='round'&&gr&&gr!=='none'&&!e.revealed?'<button class="ghost" id="evV" style="width:100%;margin-top:14px">Revelar regra aos jogadores</button>':''}
+  ${rd&&rd.kind==='enigma'&&e.phase==='round'&&!e.enigReveal?'<button class="ghost" id="evL" style="width:100%;margin-top:14px">Restaurar vidas deste enigma</button>':''}
+  <button class="full" id="evP" style="width:100%;margin-top:14px;padding:16px">${btn}</button>
+  ${e.phase!=='ended'?'<button class="ghost" id="evE" style="width:100%;margin-top:10px">Encerrar agora</button>':''}`;
+  el.onclick=ev=>{
+    if(ev.target.id==='evP'){
+      if(e.phase==='intro'||e.phase==='result')sock.emit('gm:event:next');
+      else if(e.phase==='round')sock.emit('gm:event:resolve');
+      else sock.emit('gm:event:close');
+    }
+    if(ev.target.id==='evV')sock.emit('gm:event:reveal');
+    if(ev.target.id==='evL')sock.emit('gm:event:lives');
+    if(ev.target.id==='evE')sock.emit('gm:event:end');
+  };
+}
+
+/* ---------- overlay: tela GAME para os jogadores ---------- */
+function renderOverlay(){
+  const ov=$('#ev');
+  if(!S.event||!me||me.role==='gm'){ov.hidden=true;return}
+  ov.hidden=false;
+  if($('#evmid').contains(document.activeElement)&&document.activeElement.tagName==='INPUT')return;
+  const e=S.event,pid=me.sid,p=player(pid),member=e.members.includes(pid),alive=member&&p&&p.sheet.pv>0;
+  const rd=e.idx>=0?e.rounds[e.idx]:null,n=e.rounds.length;
+  const card=MYCARD?`<div class="sm">Seu naipe: <b style="font-weight:400;font-size:20px;color:var(--ink)">${MYCARD.suit}</b>${MYCARD.joker&&!MYCARD.jokerUsed?' · você tem o Joker 🃏':''}</div>`:'';
+  let h='';
+  if(e.phase==='intro'){
+    h=`<div class="jp">ようこそ</div><div class="jp">プレイヤーのゲームは<br>まもなく</div><div class="ttl">【${esc(e.title)}】</div><div class="jp">開始します</div>${card}<p class="sm">Aguarde o Mestre</p>`;
+  }else if(e.phase==='round'&&rd.kind==='enigma'){
+    const sub=(e.subs||{})[pid],L=(e.lives||{})[pid];
+    const tm=rd.timer&&e.left!=null?`<div class="num" style="font-size:52px" data-tmr></div>`:'';
+    h=`<div class="jp sm">ラウンド ${e.idx+1} / ${n} · 謎</div><div class="ttl" style="font-size:28px">【${esc(rd.name)}】</div>${tm}${card}`;
+    if(!member)h+=`<p class="sm">観戦中 · Você está assistindo</p>`;
+    else if(!alive)h+=`<div class="num" style="font-size:44px">脱落</div><p class="sm">Você foi eliminado</p>`;
+    else if(e.enigReveal){const ok=(e.solved||[]).includes(pid);h+=`<div class="num" style="font-size:44px">${ok?'✓':'✗'}</div><p class="sm">${ok?'Resposta correta':'Resposta errada'} · vidas ${L??0}</p>`}
+    else{
+      h+=`<div class="ttl" style="font-size:20px;white-space:pre-wrap;max-width:340px">${esc(rd.q)}</div>`;
+      const locked=!!sub&&sub.tries>0&&rd.mode==='single';
+      if(locked)h+=`<p class="sm">Resposta enviada · aguardando o Mestre revelar</p>`;
+      else h+=`<p class="sm">Vidas no início: ${(e.startLives||{})[pid]??'—'} · ${sub&&sub.tries?'Enviadas: '+sub.tries+' · ':''}${rd.mode==='single'?'uma tentativa':'várias tentativas'} · aguardando o Mestre revelar</p><input id="evAns" maxlength="80" autocomplete="off" placeholder="Sua resposta" style="font-size:18px;text-align:center;max-width:320px"><button id="evSend">Enviar</button>`;
+    }
+  }else if(e.phase==='round'){
+    const ruleTxt=!rd.hasRule?'Sem regra oculta':(e.revealed||rd.rule?RULE_LABEL[rd.rule]:'Regra oculta');
+    const bonus=MYCARD&&rd.attr&&MYCARD.suit===SUIT_OF[rd.attr];
+    h=`<div class="jp sm">ラウンド ${e.idx+1} / ${n}</div><div class="ttl" style="font-size:32px">【${esc(rd.name)}】</div>
+    <p class="sm">${attrName(rd.attr)} · ${rd.dc}+ para passar${rd.dano?` · falha: −${rd.dano} PV`:''}</p>
+    ${rd.timer&&e.left!=null?`<div class="num" style="font-size:52px" data-tmr></div>`:''}
+    <p class="sm">Regra: ${esc(ruleTxt)}</p>
+    ${card}${bonus&&member?'<p class="sm">Naipe combina com o teste: +1</p>':''}`;
+    if(!member)h+=`<p class="sm">観戦中 · Você está assistindo</p>`;
+    else if(!alive)h+=`<div class="num" style="font-size:44px">脱落</div><p class="sm">Você foi eliminado</p>`;
+    else if(e.rolls[pid]){const r=e.rolls[pid];h+=`<div class="num">${r.total}</div><p class="sm">${r.dice.join(' + ')}${r.v?' '+sg(r.v):''}</p><p class="sm">Aguardando os outros · ${Object.keys(e.rolls).length}/${e.members.filter(i=>player(i)&&player(i).sheet.pv>0).length}</p>`}
+    else{
+      h+=`<p class="sm">${hasSpec(p.sheet,rd)?'Sua especialidade dá vantagem':'Role seus dados'}</p><button id="evR">Rolar 2d6 + atributo</button>`;
+      if(MYCARD&&MYCARD.joker&&!MYCARD.jokerUsed)h+=`<button class="ghost" id="evJ" style="margin-top:10px;padding:12px 24px;font-size:15px">Apostar o Joker 🃏</button><p class="sm">Com vantagem. Se passar, os outros perdem 1 PV. Se falhar, você perde 1 PV extra.</p>`;
+    }
+  }else if(e.phase==='result'){
+    const res=e.results||{};
+    h=`<div class="jp sm">結果 ${e.idx+1}</div><div class="ttl" style="font-size:26px">【${esc(rd.name)}】</div>
+    ${RULE_LABEL[rd.rule]&&rd.hasRule?`<p class="sm">Regra: ${esc(RULE_LABEL[rd.rule])}</p>`:''}
+    ${Object.values(res).map(r=>`<div class="rl"><span>${esc(r.name)}</span><span>${r.rank?'#'+r.rank+' · ':''}${r.total??'—'} · ${rd&&rd.kind==='enigma'?(r.pass?'acertou':'errou'):(r.pass?'passou':'falhou')}${r.dmg?' −'+r.dmg:''}${r.out?' · 脱落':''}</span></div>`).join('')}
+    <p class="sm" style="margin-top:18px">${alive?'Você sobreviveu a esta rodada':member?'Você foi eliminado':'Aguardando o Mestre'}</p>`;
+  }else if(e.phase==='ended'){
+    const o=e.outcome||{survivors:[],out:[]};
+    h=`<div class="ttl">${alive?'クリア':member?'ゲームオーバー':'ゲーム終了'}</div>
+    <p class="sm">${alive?'Você sobreviveu!':member?'Você foi eliminado':'Evento encerrado'}</p>
+    <div style="margin-top:18px;width:100%;max-width:340px">${o.survivors.length?`<div class="sm">生存者 · sobreviventes</div>${o.survivors.map(x=>`<div class="rl"><span>${esc(x)}</span><span>クリア</span></div>`).join('')}`:''}
+    ${o.out.length?`<div class="sm" style="margin-top:14px">脱落者 · eliminados</div>${o.out.map(x=>`<div class="rl"><span>${esc(x)}</span><span>脱落</span></div>`).join('')}`:''}</div>`;
+  }
+  if(e.suit&&e.phase!=='ended')h=`<p class="sm">Arena ${e.suit} ${SUIT_LBL[e.suit]} · ${esc(ARENA_TXT[e.suit])}</p>`+h;
+  $('#evmid').innerHTML=h;
+  tick();
+  $('#evmid').onclick=ev=>{
+    if(ev.target.id==='evR')sock.emit('event:roll');
+    if(ev.target.id==='evJ')sock.emit('event:roll',{joker:true});
+    if(ev.target.id==='evSend'){const i=$('#evAns');if(i){sock.emit('event:answer',{text:i.value});i.value='';i.blur()}}
+  };
+  $('#evmid').onkeydown=ev=>{if(ev.key==='Enter'&&ev.target.id==='evAns'){sock.emit('event:answer',{text:ev.target.value});ev.target.value='';ev.target.blur()}};
+}
+// Contagem regressiva (o servidor manda o tempo restante; o cliente desconta o que passou)
+function tick(){
+  if(!S||!S.event||S.event.left==null)return;
+  const ms=Math.max(0,S.event.left-(Date.now()-recvAt));
+  const t=ms>=10000?Math.ceil(ms/1000)+'s':(ms/1000).toFixed(1)+'s';
+  document.querySelectorAll('[data-tmr]').forEach(x=>x.textContent=t);
+}
+setInterval(tick,250);
+
+/* ---------- placar, itens e NPCs ---------- */
+const GEAR_LBL={F:'♠ Físico',I:'♦ Intelecto',A:'♣ Agilidade',P:'♥ Psicológico',DEF:'Defesa',DANO:'Dano'};
+const GEAR_ATTRS=['F','I','A','P','DEF','DANO'];
+let NPCAV='';
+function nameOf(id){
+  if(String(id).startsWith('npc:')){const n=(S&&S.npcs||[]).find(x=>x.id===id.slice(4));return n?n.name:'NPC'}
+  const p=S&&S.players?S.players.find(x=>x.id===id):null;return p?p.sheet.name:'?';
+}
+function lbHtml(e){
+  const sc=e.scores||{};
+  const rows=Object.keys(sc).map(id=>({n:nameOf(id),d:sc[id]||0})).sort((a,b)=>b.d-a.d);
+  if(!rows.length)return'';
+  return `<div style="margin:12px 0"><div class="sm">Placar de dano</div>${rows.map((r,i)=>`<div class="rl"><span>${i===0?'<b class="red">1.</b>':(i+1)+'.'} ${esc(r.n)}</span><span>${r.d}</span></div>`).join('')}</div>`;
+}
+function gearEd(el,pid){
+  if(!el)return;
+  const p=player(pid);
+  if(!p){el.innerHTML='';return}
+  if(el.contains(document.activeElement)&&/INPUT|SELECT/.test(document.activeElement.tagName))return;
+  const g=p.sheet.gear||[];
+  const sel=(v,cls)=>GEAR_ATTRS.map(a=>`<option value="${a}" ${v===a?'selected':''}>${GEAR_LBL[a]}</option>`).join('');
+  el.innerHTML=`<div class="rnd"><div class="sm">Itens · só o Mestre edita os bônus</div>
+  ${g.map(it=>`<div style="margin-top:12px"><div class="rowx"><label>Nome<input data-gn="${it.id}" value="${esc(it.name)}" maxlength="40"></label><label>Atributo<select data-ga="${it.id}">${sel(it.attr)}</select></label></div>
+  <div class="rowx"><label>Bônus<input type="number" min="-3" max="3" data-gb="${it.id}" value="${it.bonus}"></label><label>Dados extra (d6)<input type="number" min="0" max="3" data-gd="${it.id}" value="${it.dd}"></label></div>
+  <div class="qc"><button data-gs="${it.id}">Salvar</button><button class="ghost" data-gx="${it.id}">Remover</button>${it.eq?'<span class="warn">equipado</span>':''}</div></div>`).join('')}
+  <div style="margin-top:14px"><label>Novo item<input id="gnN" placeholder="Katana Afiada" maxlength="40"></label>
+  <div class="rowx"><label>Atributo<select id="gnA">${sel('DEF')}</select></label><label>Bônus<input type="number" id="gnB" min="-3" max="3" value="1"></label></div>
+  <label>Dados extra (d6)<input type="number" id="gnD" min="0" max="3" value="0"></label>
+  <button class="full" id="gnS" style="width:100%;margin-top:12px">Adicionar item</button></div></div>`;
+  el.onclick=ev=>{const t=ev.target;
+    if(t.dataset.gs){const id=t.dataset.gs;sock.emit('gm:item:save',{pid,item:{id,name:el.querySelector(`[data-gn="${id}"]`).value,attr:el.querySelector(`[data-ga="${id}"]`).value,bonus:+el.querySelector(`[data-gb="${id}"]`).value,dd:+el.querySelector(`[data-gd="${id}"]`).value}})}
+    if(t.dataset.gx)sock.emit('gm:item:del',{pid,id:t.dataset.gx});
+    if(t.id==='gnS'){const n=el.querySelector('#gnN').value.trim();if(!n)return;sock.emit('gm:item:save',{pid,item:{name:n,attr:el.querySelector('#gnA').value,bonus:+el.querySelector('#gnB').value,dd:+el.querySelector('#gnD').value}});el.querySelector('#gnN').value=''}
+  };
+}
+/* ---------- fome e sede (0 a 10) ---------- */
+function needBlock(p,editable){
+  const sh=(p&&p.sheet)||{};
+  const nv=v=>v==null?10:v;
+  const row=(k,lbl,v,cor)=>`<div class="rl" style="border:0;padding:4px 0"><span>${lbl}</span><span style="white-space:nowrap">${editable?`<button data-adj="${p.id}|${k}|-1" style="padding:2px 9px">−</button> `:''}${Array.from({length:10},(_,i)=>`<i style="display:inline-block;width:10px;height:14px;margin-right:2px;border:1px solid var(--ink);background:${i<v?cor:'transparent'}"></i>`).join('')} <span class="sm">${v}/10</span>${editable?` <button data-adj="${p.id}|${k}|1" style="padding:2px 9px">+</button>`:''}</span></div>`;
+  const alertas=[nv(sh.fome)<=2?'FAMINTO':'',nv(sh.sede)<=2?'DESIDRATADO':''].filter(Boolean).join(' · ');
+  return `<div class="sm" style="margin-bottom:6px">Necessidades</div>${row('fome','Fome',nv(sh.fome),'#ca8a04')}${row('sede','Sede',nv(sh.sede),'#60a5fa')}${alertas?`<div class="red" style="margin-top:4px">${alertas}</div>`:''}`;
+}
+/* ---------- salvaguardas de morte (2 sucessos · 2 falhas) ---------- */
+function saveBlock(p,editable){
+  const sv=(p&&p.sheet&&p.sheet.saves)||{s:0,f:0};
+  const dots=(n,cor)=>[0,1].map(i=>`<span style="display:inline-block;width:18px;height:18px;border-radius:50%;border:2px solid var(--ink);margin-right:8px;background:${i<n?cor:'transparent'}"></span>`).join('');
+  const btn=(k,d)=>editable?`<button data-sv="${p.id}|${k}|${d}" style="padding:2px 9px">${d>0?'+':'−'}</button>`:'';
+  const estado=sv.f>=2?'<span class="red">MORTO</span>':sv.s>=2?'<span>ESTÁVEL</span>':'';
+  return `<div class="sm" style="margin-bottom:6px">Salvaguardas de morte ${estado}</div>
+    <div class="rl"><span>Sucessos</span><span>${dots(sv.s,'var(--ink)')}${btn('s',-1)} ${btn('s',1)}</span></div>
+    <div class="rl"><span>Falhas</span><span>${dots(sv.f,'#b22222')}${btn('f',-1)} ${btn('f',1)}</span></div>
+    ${editable?`<div class="qc"><button class="ghost" data-sv="${p.id}|reset|0">Zerar</button></div>`:''}`;
+}
+document.addEventListener('click',e=>{
+  if(e.target.closest&&e.target.closest('[data-fexp]')){
+    sock.emit('claim:get',null,r=>{
+      if(!r||!r.ok)return alert('Não foi possível exportar a ficha');
+      if(me){me.claim=r.claim;save()}
+      const p=player(me.sid);if(!p)return;
+      download(JSON.stringify({app:'borderland-ficha',version:1,exportedAt:new Date().toISOString(),claim:r.claim,sheet:p.sheet},null,2),'ficha-'+(p.sheet.name||'personagem')+'.json');
+    });
+    return;
+  }
+  const b=e.target.closest&&e.target.closest('[data-sv]');
+  if(!b||!me||me.role!=='gm')return;
+  const[id,kind,val]=b.dataset.sv.split('|');
+  if(kind==='reset')sock.emit('gm:saves',{id,reset:true});
+  else sock.emit('gm:saves',{id,kind,delta:+val});
+});
+function condView(el,p){
+  let box=el.querySelector('#condbox');
+  if(!box){box=document.createElement('div');box.id='condbox';el.appendChild(box)}
+  box.innerHTML=`<div class="rnd">${needBlock(p,false)}</div><div class="rnd">${saveBlock(p,false)}</div><div class="qc" style="margin-top:10px"><button class="ghost" data-fexp="1">Exportar minha ficha (.json)</button></div><div class="rnd">${condBlock(p.sheet.conds,'pl',p.id,false)}</div>`;
+}
+/* ---------- inventário do jogador: itens e efeito nos resultados (só itens equipados contam) ---------- */
+const EFF_TXT={F:'testes de ♠ Físico',I:'testes de ♦ Intelecto',A:'testes de ♣ Agilidade',P:'testes de ♥ Psicológico',DEF:'sua Defesa contra ataques de NPCs (7 + bônus)',DANO:'o dano que você causa'};
+function itemEffect(it){
+  const out=[];
+  if(it.attr&&EFF_TXT[it.attr])out.push(sg(it.bonus)+' em '+EFF_TXT[it.attr]);
+  if(it.dd)out.push('+'+it.dd+'d6 nas rolagens de dano');
+  return out.join(' · ')||'Sem efeito';
+}
+function invView(el,p){
+  let box=el.querySelector('#invbox');
+  if(!box){box=document.createElement('div');box.id='invbox';el.appendChild(box)}
+  const g=(p.sheet&&p.sheet.gear)||[];
+  const eq=g.filter(x=>x&&x.eq);
+  const lines=['F','I','A','P','DEF','DANO']
+    .map(k=>({k,v:eq.filter(x=>x.attr===k).reduce((t,x)=>t+(x.bonus||0),0)}))
+    .filter(l=>l.v!==0);
+  const dd=eq.reduce((t,x)=>t+(x.dd||0),0);
+  const cheio=eq.length>=4;
+  box.innerHTML=`<div class="rnd" style="margin-top:0"><div class="sm">Efeito atual nos resultados</div>
+    ${lines.length?lines.map(l=>`<div class="rl"><span>${GEAR_LBL[l.k]}</span><span>${sg(l.v)}</span></div>`).join(''):'<p class="sm">Nenhum item equipado altera seus resultados.</p>'}
+    ${dd?`<div class="rl"><span>Dados extra no dano</span><span>+${dd}d6</span></div>`:''}
+  </div>
+  <div class="rnd"><div class="sm">Seus itens · ${g.length}/8 · ${eq.length}/4 equipados</div>
+    ${g.length?g.map(it=>`<div class="card" style="display:block;padding:12px 0">
+      <div class="rl" style="border:0"><span>${esc(it.name)}<br><span class="sm">${GEAR_LBL[it.attr]||esc(it.attr)} ${sg(it.bonus)}${it.dd?' · +'+it.dd+'d6':''}</span></span><span class="${it.eq?'red':'sm'}">${it.eq?'Equipado':'Guardado'}</span></div>
+      <div class="warn">${it.eq?'Afeta: ':'Se equipado, afetaria: '}${esc(itemEffect(it))}</div>
+      <div class="qc"><button class="${it.eq?'on':''}" data-eq="${it.id}|${it.eq?0:1}" ${!it.eq&&cheio?'disabled':''}>${it.eq?'Desequipar':'Equipar'}</button></div>
+    </div>`).join(''):'<p class="sm">Você ainda não tem itens. Peça ao Mestre.</p>'}
+    ${cheio?'<p class="warn">Limite de 4 itens equipados.</p>':''}
+  </div>
+  <p class="warn" style="margin-top:14px">Só o Mestre adiciona, edita ou remove itens e define os bônus. Itens guardados não alteram as rolagens.</p>`;
+  box.onclick=ev=>{const d=ev.target.dataset.eq;if(d){const[id,v]=d.split('|');sock.emit('item:equip',{id,eq:v==='1'})}};
+}
+/* ---------- NPCs: formulário, biblioteca salva no aparelho do mestre e cartões na sala ---------- */
+let npcDraft={name:'',attrs:{F:1,I:1,A:1,P:1},pv:6,atk:1,dano:2,def:0,desc:''};
+const getNpcLib=()=>{try{return JSON.parse(localStorage.getItem('npcLib')||'[]')}catch(e){return[]}};
+const setNpcLib=l=>localStorage.setItem('npcLib',JSON.stringify(l));
+function readNpcForm(el){
+  const a={};
+  el.querySelectorAll('[data-na]').forEach(i=>a[i.dataset.na]=+i.value);
+  return {name:el.querySelector('#nN').value.trim(),attrs:a,pv:+el.querySelector('#nPV').value,atk:+el.querySelector('#nAtk').value,dano:+el.querySelector('#nDano').value,def:+el.querySelector('#nDef').value,desc:el.querySelector('#nD').value,avatar:NPCAV};
+}
+let npcFilter='all';
+const npcOpen=new Set();
+function renderNpc(force){
+  const el=$('#v-npc');
+  if(!force&&el.contains(document.activeElement)&&/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))return;
+  const d=npcDraft,list=S.npcs||[],lib=getNpcLib();
+  const inScene=list.filter(n=>n.inScene!==false).length;
+  const shown=list.filter(n=>npcFilter==='all'||n.inScene!==false);
+  const players=S.players.map(p=>`<option value="${p.id}">${esc(p.sheet.name)}</option>`).join('');
+  el.innerHTML=`<div class="rnd" style="margin-top:0"><div class="sm">Novo NPC / Inimigo</div>
+  <label>Nome<input id="nN" maxlength="40" value="${esc(d.name)}" placeholder="Cão de Guarda Robótico"></label>
+  <div class="attrs">${ATTR.map(a=>`<label>${a.s} ${a.n}<input type="number" min="-1" max="3" value="${d.attrs[a.k]}" data-na="${a.k}"></label>`).join('')}</div>
+  <div class="rowx"><label>PV<input type="number" id="nPV" min="1" max="30" value="${d.pv}"></label><label>Ataque (bônus)<input type="number" id="nAtk" min="-3" max="8" value="${d.atk}"></label></div>
+  <div class="rowx"><label>Dano ao acertar<input type="number" id="nDano" min="0" max="6" value="${d.dano}"></label><label>Defesa (bônus)<input type="number" id="nDef" min="-3" max="6" value="${d.def}"></label></div>
+  <label>Descrição<textarea id="nD" rows="2" maxlength="300">${esc(d.desc)}</textarea></label>
+  <label>Imagem<input type="file" id="nImg" accept="image/*"></label>
+  <button class="full" id="nSave" style="width:100%;margin-top:14px">Colocar NPC na sala</button>
+  <button class="ghost" id="nLib" style="width:100%;margin-top:8px">Salvar na biblioteca (neste aparelho)</button>
+  <p class="warn" id="nErr"></p></div>
+  <div class="rnd"><div class="sm">Biblioteca de NPCs (neste aparelho)</div>${lib.length?lib.map((n,i)=>`<div class="rl"><span>${esc(n.name)}<br><span class="sm">PV ${n.pv} · Atq ${sg(n.atk)} · Def ${sg(n.def)}</span></span><span style="white-space:nowrap"><button data-nl="${i}|add">Colocar</button> <button class="ghost" data-nl="${i}|edit">Editar</button> <button class="ghost" data-nl="${i}|del">×</button></span></div>`).join(''):'<p class="sm">Nenhum NPC salvo</p>'}</div>
+  <div class="rnd"><div class="sm">NPCs da sala · ${list.length} no total · ${inScene} em cena</div>
+  <div class="qc"><button data-nf="all" class="${npcFilter==='all'?'on':''}">Todos (${list.length})</button><button data-nf="scene" class="${npcFilter==='scene'?'on':''}">Em cena (${inScene})</button></div></div>
+  ${shown.map(n=>{const open=npcOpen.has(n.id),sc=n.inScene!==false;return `<div class="card" style="display:block;padding:10px 0">
+    <div class="rl" style="border:0;cursor:pointer" data-tog="${n.id}"><span style="display:flex;gap:10px;align-items:center"><span class="av npc" style="width:36px;height:36px;${n.avatar?`background-image:url(${n.avatar})`:''}">${n.avatar?'':esc(n.name[0])}</span><span>${esc(n.name)}<br><span class="sm">${n.pv}/${n.maxpv} PV${sc?'':' · fora de cena'}</span></span></span><span>${open?'▾':'▸'}</span></div>
+    ${open?`<div class="info" style="margin-top:6px">${bar('PV',Math.ceil(n.pv*6/Math.max(1,n.maxpv)))}<div class="sm">Atq ${sg(n.atk)} · Def ${sg(n.def)} · Dano ${n.dano}</div>
+    <div class="sm">F${n.attrs.F} I${n.attrs.I} A${n.attrs.A} P${n.attrs.P}${n.desc?' · '+esc(n.desc):''}</div>
+    <div class="qc">${ATTR.map(a=>`<button data-npc="${n.id}|roll|${a.k}">Rolar ${a.s}</button>`).join('')}<button data-npc="${n.id}|roll|">Rolar sem atributo</button></div>
+    <div class="qc"><button data-npc="${n.id}|place">No mapa</button><button data-npc="${n.id}|pv|-1">PV −1</button><button data-npc="${n.id}|pv|1">PV +1</button><button data-scene="${n.id}|${sc?0:1}">${sc?'Tirar de cena':'Colocar em cena'}</button><button class="ghost" data-npc="${n.id}|del">Remover</button></div>
+    ${condBlock(n.conds,'npc',n.id,true)}
+    <div class="rowx" style="margin-top:8px"><label>Alvo<select data-tgt="${n.id}">${players}</select></label><div style="align-self:end"><button data-npc="${n.id}|atk">Atacar</button></div></div></div>`:''}
+  </div>`}).join('')}`;
+  el.oninput=()=>{};
+  el.onchange=ev=>{if(ev.target.id==='nImg'){small(ev.target.files[0],x=>NPCAV=x)}};
+  el.onclick=ev=>{const t=ev.target;
+    if(t.dataset.nf!==undefined){npcFilter=t.dataset.nf;return renderNpc(true)}
+    if(t.dataset.tog!==undefined){const id=t.dataset.tog;npcOpen.has(id)?npcOpen.delete(id):npcOpen.add(id);return renderNpc(true)}
+    if(t.dataset.scene!==undefined){const[id,on]=t.dataset.scene.split('|');return sock.emit('gm:npc:scene',{id,on:on==='1'})}
+    if(t.id==='nSave'){
+      const npc=readNpcForm(el);
+      if(!npc.name)return el.querySelector('#nErr').textContent='Dê um nome ao NPC';
+      sock.emit('gm:npc:save',{npc},r=>{
+        if(!r||!r.ok){el.querySelector('#nErr').textContent=r?r.error:'';return}
+        NPCAV='';npcDraft={name:'',attrs:{F:1,I:1,A:1,P:1},pv:6,atk:1,dano:2,def:0,desc:''};renderNpc(true);
+      });
+      return;
+    }
+    if(t.id==='nLib'){
+      const npc=readNpcForm(el);
+      if(!npc.name)return el.querySelector('#nErr').textContent='Dê um nome ao NPC';
+      const l=getNpcLib();l.push(npc);setNpcLib(l);renderNpc(true);
+      return;
+    }
+    if(t.dataset.nl!==undefined){
+      const[i,act]=t.dataset.nl.split('|'),l=getNpcLib(),n=l[+i];
+      if(!n)return;
+      if(act==='add')sock.emit('gm:npc:save',{npc:n},r=>{if(!r||!r.ok)el.querySelector('#nErr').textContent=r?r.error:''});
+      if(act==='edit'){npcDraft=Object.assign({name:'',attrs:{F:1,I:1,A:1,P:1},pv:6,atk:1,dano:2,def:0,desc:''},JSON.parse(JSON.stringify(n)));NPCAV=n.avatar||'';renderNpc(true)}
+      if(act==='del'&&confirm('Remover este NPC da biblioteca?')){l.splice(+i,1);setNpcLib(l);renderNpc(true)}
+      return;
+    }
+    if(t.dataset.npc){const[id,act,val]=t.dataset.npc.split('|');
+      if(act==='roll')sock.emit('gm:npc:roll',{id,attr:val||''});
+      if(act==='place')sock.emit('gm:npc:place',{id});
+      if(act==='pv')sock.emit('gm:npc:adjust',{id,delta:+val});
+      if(act==='del')sock.emit('gm:npc:del',{id});
+      if(act==='atk'){const tg=el.querySelector(`[data-tgt="${id}"]`).value;if(tg)sock.emit('gm:npc:attack',{npcId:id,targetId:tg})}
+    }
+  };
+}
+
+/* ---------- anúncio de jogo (cinematográfico) ---------- */
+let annDraft={kicker:'',title:'GAME',suit:'',difficulty:7,slides:['Bem-vindos ao jogo.']};
+let annId=null,annIdx=0,annDone=null;
+/* ---------- presets de anúncio (guardados no aparelho do mestre) ---------- */
+const getAnnPresets=()=>{try{return JSON.parse(localStorage.getItem('annPresets')||'[]')}catch(e){return[]}};
+const setAnnPresets=l=>localStorage.setItem('annPresets',JSON.stringify(l));
+function renderAnnTab(force){
+  const el=$('#v-anuncio');
+  if(!el)return;
+  if(!force&&el.contains(document.activeElement)&&/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))return;
+  const a=S&&S.announce, pr=getAnnPresets();
+  el.innerHTML=`${a?`<div class="rnd" style="margin-top:0"><div class="sm">Anúncio no ar</div><div class="ttl" style="font-size:20px">【 ${esc(a.title)} 】</div><button class="ghost" id="annStop" style="width:100%;margin-top:10px">Encerrar anúncio para todos</button></div>`:''}
+  <div class="rnd"><div class="sm">Novo anúncio de jogo</div>
+  <label>Texto acima do título (opcional)<input id="aK" maxlength="60" value="${esc(annDraft.kicker||'')}"></label>
+  <label>Título grande (slide 1) · pode ser qualquer texto<input id="aT" maxlength="40" value="${esc(annDraft.title)}"></label>
+  <div class="rowx"><label>Naipe<select id="aS"><option value="">Nenhum</option>${['♠','♦','♣','♥'].map(s=>`<option value="${s}" ${annDraft.suit===s?'selected':''}>${s} ${SUIT_LBL[s]}</option>`).join('')}</select></label>
+  <label>Dificuldade<input type="number" id="aD" min="1" max="20" value="${annDraft.difficulty}"></label></div>
+  ${annDraft.slides.map((t,i)=>`<label>Slide ${i+1}<textarea rows="3" data-as="${i}" maxlength="800">${esc(t)}</textarea></label><button class="ghost" data-asx="${i}" style="width:100%;margin-top:6px">Remover slide</button>`).join('')}
+  <button class="ghost" id="aAdd" style="width:100%;margin-top:12px">+ Slide</button>
+  <button class="full" id="aGo" style="width:100%;margin-top:14px;padding:16px">Disparar anúncio</button>
+  <button class="ghost" id="aSave" style="width:100%;margin-top:8px">Salvar como preset</button>
+  <p class="warn" id="aErr"></p></div>
+  <div class="rnd"><div class="sm">Anúncios salvos (neste aparelho)</div>${pr.length?pr.map((p,i)=>`<div class="rl"><span>${esc(p.name)}<br><span class="sm">${esc(p.title)} · ${p.slides.length} slides</span></span><span style="white-space:nowrap"><button data-afire="${i}">Disparar</button> <button class="ghost" data-aload="${i}">Editar</button> <button class="ghost" data-adel="${i}">×</button></span></div>`).join(''):'<p class="sm">Nenhum anúncio salvo</p>'}</div>`;
+  const msg=(r)=>{const x=$('#aErr');if(x)x.textContent=r&&r.ok?'Anúncio disparado':(r?r.error:'')};
+  el.oninput=ev=>{const t=ev.target;
+    if(t.id==='aT')annDraft.title=t.value;
+    if(t.id==='aK')annDraft.kicker=t.value;
+    if(t.id==='aD')annDraft.difficulty=+t.value||1;
+    if(t.dataset.as!==undefined)annDraft.slides[+t.dataset.as]=t.value;};
+  el.onchange=ev=>{if(ev.target.id==='aS'){annDraft.suit=ev.target.value;renderAnnTab(true)}};
+  el.onclick=ev=>{const t=ev.target,d=t.dataset;
+    if(t.id==='aAdd'){annDraft.slides.push('');renderAnnTab(true)}
+    if(d.asx!==undefined){annDraft.slides.splice(+d.asx,1);if(!annDraft.slides.length)annDraft.slides.push('');renderAnnTab(true)}
+    if(t.id==='aGo')sock.emit('gm:announce:start',{kicker:annDraft.kicker,title:annDraft.title,suit:annDraft.suit,difficulty:annDraft.difficulty,slides:annDraft.slides},msg);
+    if(t.id==='annStop')sock.emit('gm:announce:close');
+    if(t.id==='aSave'){const nm=prompt('Nome do anúncio salvo');if(!nm||!nm.trim())return;const l=getAnnPresets();l.push({name:nm.trim().slice(0,40),kicker:annDraft.kicker,title:annDraft.title,suit:annDraft.suit,difficulty:annDraft.difficulty,slides:annDraft.slides.slice()});setAnnPresets(l);renderAnnTab(true)}
+    if(d.afire!==undefined){const p=getAnnPresets()[+d.afire];if(p)sock.emit('gm:announce:start',{kicker:p.kicker,title:p.title,suit:p.suit,difficulty:p.difficulty,slides:p.slides},msg)}
+    if(d.aload!==undefined){const p=getAnnPresets()[+d.aload];if(p){annDraft={kicker:p.kicker||'',title:p.title,suit:p.suit||'',difficulty:p.difficulty,slides:p.slides.slice()};renderAnnTab(true)}}
+    if(d.adel!==undefined){if(confirm('Excluir este anúncio salvo?')){const l=getAnnPresets();l.splice(+d.adel,1);setAnnPresets(l);renderAnnTab(true)}}
+  };
+}
+// Cada jogador passa os slides no próprio ritmo; o mestre não controla a navegação
+function renderAnn(){
+  const ov=$('#ann');
+  if(!ov)return;
+  const a=S&&S.announce;
+  if(!a||!me||me.role==='gm'||annDone===a.id||!a.slides||!a.slides.length){ov.hidden=true;return}
+  if(annId!==a.id){annId=a.id;annIdx=0}
+  ov.hidden=false;
+  const n=a.slides.length,i=Math.min(Math.max(0,annIdx),n-1),last=i===n-1;
+  const sfx=a.suit?`${SUIT_LBL[a.suit].toUpperCase()} <span class="suit">${a.suit}</span> - NÍVEL ${a.difficulty}`:`NÍVEL ${a.difficulty}`;
+  const titulo=i===0?`${a.kicker?`<div class="kick">${esc(a.kicker)}</div>`:''}<div class="ttl">【 ${esc(a.title)} 】</div><div class="sfx">${sfx}</div>`:'';
+  ov.innerHTML=`<div class="bk"></div><div class="mid">${titulo}<div>${esc(a.slides[i])}</div></div><div class="bk"></div>`;
+  // Só avança: clique na tela leva ao próximo slide; no último, encerra. Não há volta.
+  ov.onclick=()=>{
+    if(last){annDone=a.id;ov.hidden=true;return}
+    annIdx=i+1;renderAnn();
+  };
+}
+/* ---------- dados ---------- */
+/* ---------- condições ---------- */
+let condId=null;
+function condSheet(pl){
+  return `<div style="display:flex;justify-content:space-between;align-items:center"><h2 style="font-size:20px">Condições · ${esc(pl.sheet.name)}</h2><button class="ghost" id="cClose">Fechar</button></div>${condBlock(pl.sheet.conds,'pl',pl.id,true)}`;
+}
+function openCond(id){
+  const pl=player(id); if(!pl)return;
+  condId=id;mapsOpen=false;
+  const sb=$('#sheetbg');
+  sb.onclick=ev=>{if(ev.target.id==='cClose'){sb.classList.remove('open');condId=null}};
+  sb.innerHTML=condSheet(pl);
+  sb.classList.add('open');
+}
+function condBlock(list,target,id,editable){
+  const defs=S&&S.condDefs||{},mine=list||[];
+  const chips=mine.map(k=>defs[k]?`<span class="chip">${esc(defs[k].name)} ${sg(defs[k].mod)}${editable?` <button class="ghost" style="padding:0 6px;border:0" data-cx="${k}" data-ct="${target}|${id}">×</button>`:''}</span>`:'').join('');
+  const rest=Object.keys(defs).filter(k=>!mine.includes(k));
+  const form=editable&&rest.length?`<div class="rowx" style="margin-top:8px"><label>Aplicar condição<select id="cs-${id}">${rest.map(k=>`<option value="${k}">${esc(defs[k].name)} ${sg(defs[k].mod)}</option>`).join('')}</select></label><div style="align-self:end"><button data-ca="${target}|${id}">Aplicar</button></div></div>`:'';
+  return `<div class="sm" style="margin-top:12px">Condições</div><div>${chips||'<span class="sm">Nenhuma</span>'}</div>${form}`;
+}
+// Cliente só pede; quem decide é o servidor (apenas o mestre)
+document.addEventListener('click',ev=>{
+  const t=ev.target;
+  if(!t||!t.dataset)return;
+  if(t.dataset.ca!==undefined){
+    const[tg,id]=t.dataset.ca.split('|');
+    const sel=document.getElementById('cs-'+id);
+    if(sel&&sel.value)sock.emit('gm:cond',{target:tg,id,key:sel.value,on:true});
+  }
+  if(t.dataset.cx!==undefined){
+    const[tg,id]=t.dataset.ct.split('|');
+    sock.emit('gm:cond',{target:tg,id,key:t.dataset.cx,on:false});
+  }
+});
+// Conta transparente: [4, 5] + 2 (Físico) − 2 (Exaustão Extrema) = 9
+function formula(l){
+  if(!l.parts)return '';
+  const d=`[${(l.dice||[]).join(', ')}]`;
+  const ps=l.parts.map(p=>` ${p.v<0?'−':'+'} ${Math.abs(p.v)} (${esc(p.l)})`).join('');
+  return `${d}${ps} = ${l.total}`;
+}
+function bigOf(l){
+  const head=`<div style="font-size:13px;color:var(--mut)">${esc(l.who)}${l.type==='free'?` · ${l.count}d${l.sides}`:''}${l.type==='event'?' · evento':''}${l.adv?' · vantagem':''}</div>`;
+  if(l.type==='free')return head+`<div class="n">${l.total}</div><div>${l.dice.join(' + ')}${l.mod?' '+sg(l.mod):''}</div>`;
+  if(l.type==='enigma')return head+`<div class="n" style="font-size:40px">${esc(l.res)}</div><div class="sm">vidas restantes: ${l.vidas}</div>`;
+  const f=formula(l);
+  const res=l.res?`<div style="margin-top:8px;font-size:18px;letter-spacing:.15em">${esc(l.res)}</div>`:'';
+  return head+`<div class="n">${l.total}</div>${f?`<div style="font-size:14px;margin-top:6px">${f}</div>`:`<div>${(l.dice||[]).join(' + ')}</div>`}${res}`;
+}
+function logRow(l){
+  if(l.type==='free')return [`${esc(l.who)} · ${l.count}d${l.sides}${l.mod?sg(l.mod):''}`,l.total];
+  if(l.type==='enigma')return [`${esc(l.who)} · enigma`,`${esc(l.res)} · vidas ${l.vidas}`];
+  if(l.type==='npc')return [`${esc(l.who)} · NPC${l.attr?' '+ATTR.find(x=>x.k===l.attr).s:''}`,`${formula(l)||l.total}${l.res?' · '+esc(l.res):''}`];
+  const sym=l.attr?ATTR.find(x=>x.k===l.attr).s:'';
+  return [`${esc(l.who)} ${sym}${l.adv?' ▲':''}`,`${formula(l)||l.total} · ${esc(l.res||'')}`];
+}
+function renderDice(force){
+  const el=$('#v-dados');
+  if(!force&&el.contains(document.activeElement)&&document.activeElement.tagName==='INPUT')return;
+  const last=S.log[0];
+  el.innerHTML=`<div class="big">${last?bigOf(last):'<div style="color:var(--mut)">Role os dados</div>'}</div>
+  <div class="dgrid">${DICE.map(d=>`<button data-d="${d}" class="${dSides===d?'on':''}">d${d}</button>`).join('')}</div>
+  <div class="rowx"><label>Quantidade<input type="number" id="dq" min="1" max="20" value="${dQty}"></label><label>Modificador<input type="number" id="dm" min="-99" max="99" value="${dMod}"></label></div>
+  <button id="ddano" style="width:100%;margin-top:10px;padding:14px">Rolar dano dos itens</button>
+  <button id="dfree" style="width:100%;margin-top:16px;padding:16px;font-size:17px">Rolar ${dQty}d${dSides}${dMod?sg(dMod):''}</button>
+  <div class="rnd" style="margin-top:28px"><div style="font-size:13px;color:var(--mut);margin-bottom:6px">Teste de atributo · 2d6 + atributo</div></div>
+  ${me.role==='gm'?'':`<div class="chips">${ATTR.map(a=>`<button data-a="${a.k}" class="${rAttr===a.k?'on':''}">${a.s}</button>`).join('')}<button data-a="" class="${rAttr===''?'on':''}">—</button></div>
+  <button id="adv" class="${rAdv?'on':''}" style="width:100%">Vantagem (especialidade)</button>`}
+  <button id="roll" style="width:100%;margin-top:10px;padding:14px">Rolar 2d6${me.role==='gm'?'':' + atributo'}</button>
+  <p class="warn">10+ sucesso · 7–9 sucesso com custo · 6− falha</p>
+  <div class="log" style="margin-top:14px">${S.log.map(l=>{const[a,b]=logRow(l);return `<div><span>${a}</span><span>${b}</span></div>`}).join('')}</div>`;
+  el.onclick=e=>{const t=e.target;
+    if(t.dataset.d){dSides=+t.dataset.d;renderDice(true)}
+    if(t.dataset.a!==undefined&&t.dataset.a!==''||t.dataset.a===''&&t.tagName==='BUTTON'&&t.closest('.chips')){rAttr=t.dataset.a;renderDice(true)}
+    if(t.id==='adv'){rAdv=!rAdv;renderDice(true)}
+    if(t.id==='dfree')sock.emit('dice:free',{sides:dSides,count:dQty,mod:dMod});
+    if(t.id==='ddano')sock.emit('dice:dmg');
+    if(t.id==='roll')sock.emit('roll',{attr:me.role==='gm'?'':rAttr,adv:rAdv});
+  };
+  el.onchange=e=>{if(e.target.id==='dq'){dQty=cl1(e.target.value,1,20);renderDice(true)}if(e.target.id==='dm'){dMod=cl1(e.target.value,-99,99);renderDice(true)}};
+}
+const cl1=(v,a,b)=>Math.max(a,Math.min(b,Math.round(+v)||0));
+
+/* ---------- mapa ---------- */
+const vp=$('#vp'),st=$('#stage');
+function apply(){st.style.transform=`translate(${V.x}px,${V.y}px) scale(${V.k})`;drawRuler()}
+function fit(){if(!S)return;const r=vp.getBoundingClientRect();V.k=Math.min(r.width/S.map.w,r.height/S.map.h);V.x=(r.width-S.map.w*V.k)/2;V.y=(r.height-S.map.h*V.k)/2;apply()}
+function zoom(f,cx,cy){const r=vp.getBoundingClientRect();cx=cx??r.width/2;cy=cy??r.height/2;const k=Math.max(.1,Math.min(5,V.k*f));V.x=cx-(cx-V.x)*k/V.k;V.y=cy-(cy-V.y)*k/V.k;V.k=k;apply()}
+$('#zi').onclick=()=>zoom(1.3);$('#zo').onclick=()=>zoom(1/1.3);$('#zc').onclick=fit;
+$('#tr').onclick=()=>setTool('ruler');$('#tp').onclick=()=>setTool('pin');$('#tz').onclick=()=>setTool('zone');
+$('#tl').onclick=()=>setTool('trash');
+$('#un').onclick=()=>sock.emit('gm:hist',{op:'undo'});
+$('#re').onclick=()=>sock.emit('gm:hist',{op:'redo'});
+document.addEventListener('keydown',e=>{
+  if(!me||me.role!=='gm'||!S||e.target.closest&&e.target.closest('input,textarea,select'))return;
+  const k=e.key.toLowerCase();
+  if((e.ctrlKey||e.metaKey)&&k==='z'){e.preventDefault();sock.emit('gm:hist',{op:e.shiftKey?'redo':'undo'})}
+  else if((e.ctrlKey||e.metaKey)&&k==='y'){e.preventDefault();sock.emit('gm:hist',{op:'redo'})}
+});
+function setTool(t){tool=tool===t?'':t;$('#tl').classList.toggle('on',tool==='trash');$('#tr').classList.toggle('on',tool==='ruler');$('#tp').classList.toggle('on',tool==='pin');$('#tz').classList.toggle('on',tool==='zone');ruler=null;drawRuler()}
+let mapSig='';
+function renderMap(){
+  if(S.map&&S.map.id!==lastMap){lastMap=S.map.id;setTimeout(fit,60)}
+  if(S.hist){$('#un').disabled=!S.hist.u;$('#re').disabled=!S.hist.r}
+  const m=S.map;st.style.width=m.w+'px';st.style.height=m.h+'px';
+  $('#grid').style.cssText=`background-image:linear-gradient(to right,rgba(0,0,0,.2) 1px,transparent 1px),linear-gradient(to bottom,rgba(0,0,0,.2) 1px,transparent 1px);background-size:${m.cell}px ${m.cell}px`;
+  const sig=JSON.stringify([m,S.players.map(p=>[p.id,p.online,p.x,p.y,p.sheet.name,p.sheet.avatar.length]),S.pins,S.npcs,S.zones]);
+  if(sig===mapSig||dragTok||dragPin||dragZone)return;
+  if(!mapSig)setTimeout(fit,0);mapSig=sig;
+  renderZones(m);
+  const ts=Math.max(32,m.cell*.8);
+  $('#layer').innerHTML=S.players.map(p=>`<div class="tok ${p.online?'':'off'}" data-t="${p.id}" style="left:${p.x}px;top:${p.y}px"><div class="av" style="width:${ts}px;height:${ts}px;font-size:${ts/2.4}px;${p.sheet.avatar?`background-image:url(${p.sheet.avatar})`:''}">${p.sheet.avatar?'':esc((p.sheet.name||'?')[0])}</div><small>${esc(p.sheet.name)}</small></div>`).join('')+
+    (S.npcs||[]).filter(n=>n.inScene!==false).map(n=>`<div class="tok npc" data-t="${n.id}" data-npc="1" style="left:${n.x}px;top:${n.y}px"><div class="av" style="width:${ts}px;height:${ts}px;font-size:${ts/2.4}px;${n.avatar?`background-image:url(${n.avatar})`:''}">${n.avatar?'':esc((n.name||'?')[0])}</div><small>${esc(n.name)}</small></div>`).join('')+
+    S.pins.map(n=>`<div class="pin" data-pin="${n.id}" style="left:${n.x}px;top:${n.y}px;font-size:${({1:28,2:40,3:56})[n.size]||40}px"><small>${esc(n.title)}</small></div>`).join('');
+}
+const P=new Map();let pan=null,pinch=null,ruler=null,dragTok=null,dragPin=null,dragZone=null,tap=null,pinMoved=false;
+const wpos=e=>{const r=vp.getBoundingClientRect();return{x:(e.clientX-r.left-V.x)/V.k,y:(e.clientY-r.top-V.y)/V.k}};
+vp.addEventListener('pointerdown',e=>{
+  if(tool==='trash'&&me.role==='gm'){
+    const alvo=e.target.closest('.pin,.zl,.tok.npc');
+    if(alvo){e.stopPropagation();lixeira(alvo);return}
+  }
+  const tk=e.target.closest('.tok');
+  if(tk&&me.role==='gm'&&!tool){dragTok=tk;tk.sx=e.clientX;tk.sy=e.clientY;tk.began=false;tk.setPointerCapture(e.pointerId);e.stopPropagation();return}
+  const pn=e.target.closest('.pin'),zl=e.target.closest('.zl');
+  if(me.role==='gm'&&!tool&&pn){const pin=S.pins.find(q=>q.id===pn.dataset.pin);if(pin){const w=wpos(e);dragPin={id:pin.id,el:pn,sx:e.clientX,sy:e.clientY,ox:w.x-pin.x,oy:w.y-pin.y,began:false};pn.setPointerCapture(e.pointerId);e.stopPropagation();return}}
+  if(me.role==='gm'&&!tool&&zl){const z=(S.zones||[]).find(q=>q.id===zl.dataset.zone);if(z){const w=wpos(e);dragZone={id:z.id,el:zl.parentElement,z,sx:e.clientX,sy:e.clientY,ox:w.x-z.x,oy:w.y-z.y,began:false};zl.setPointerCapture(e.pointerId);e.stopPropagation();return}}
+  P.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(P.size===2){const[a,b]=[...P.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),k:V.k};pan=null;tap=null;return}
+  if(tool==='ruler'){const w=wpos(e);ruler={a:w,b:w}}
+  else{pan={x:e.clientX,y:e.clientY,vx:V.x,vy:V.y};tap={x:e.clientX,y:e.clientY,pin:e.target.closest('.pin'),zone:e.target.closest('.zl')}}
+});
+vp.addEventListener('pointermove',e=>{
+  if(dragTok&&!dragTok.began){if(Math.hypot(e.clientX-dragTok.sx,e.clientY-dragTok.sy)<=6)return;dragTok.began=true;sock.emit('gm:hist:begin')}
+  if(dragTok){const w=wpos(e);dragTok.style.left=w.x+'px';dragTok.style.top=w.y+'px';const id=dragTok.dataset.t;
+    const now=Date.now();if(now-(dragTok.ls||0)>50){dragTok.ls=now;sock.emit(dragTok.dataset.npc?'gm:npc:move':'gm:move',{id,x:w.x,y:w.y})}return}
+  if(dragPin){
+    if(!dragPin.began){if(Math.hypot(e.clientX-dragPin.sx,e.clientY-dragPin.sy)<=6)return;dragPin.began=true;pinMoved=true;sock.emit('gm:hist:begin')}
+    const w=wpos(e),x=Math.round(w.x-dragPin.ox),y=Math.round(w.y-dragPin.oy);
+    dragPin.x=x;dragPin.y=y;dragPin.el.style.left=x+'px';dragPin.el.style.top=y+'px';
+    const now=Date.now();if(now-(dragPin.ls||0)>50){dragPin.ls=now;sock.emit('gm:pin',{op:'move',pin:{id:dragPin.id,x,y}})}
+    return;
+  }
+  if(dragZone){
+    if(!dragZone.began){if(Math.hypot(e.clientX-dragZone.sx,e.clientY-dragZone.sy)<=6)return;dragZone.began=true;sock.emit('gm:hist:begin')}
+    const w=wpos(e),x=Math.round(w.x-dragZone.ox),y=Math.round(w.y-dragZone.oy),z=dragZone.z;
+    dragZone.x=x;dragZone.y=y;dragZone.el.style.left=(x-z.r)+'px';dragZone.el.style.top=(y-z.r)+'px';
+    const now=Date.now();if(now-(dragZone.ls||0)>50){dragZone.ls=now;sock.emit('gm:zone',{op:'move',zone:{id:dragZone.id,x,y}})}
+    return;
+  }
+  if(!P.has(e.pointerId))return;P.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pinch&&P.size>=2){const[a,b]=[...P.values()],r=vp.getBoundingClientRect(),d=Math.hypot(a.x-b.x,a.y-b.y);
+    const k=Math.max(.1,Math.min(5,pinch.k*d/pinch.d)),cx=(a.x+b.x)/2-r.left,cy=(a.y+b.y)/2-r.top;V.x=cx-(cx-V.x)*k/V.k;V.y=cy-(cy-V.y)*k/V.k;V.k=k;apply();return}
+  if(ruler){ruler.b=wpos(e);drawRuler();return}
+  if(pan){V.x=pan.vx+e.clientX-pan.x;V.y=pan.vy+e.clientY-pan.y;apply();if(tap&&Math.hypot(e.clientX-tap.x,e.clientY-tap.y)>6)tap=null}
+});
+document.addEventListener('click',e=>{
+  const pn=e.target.closest&&e.target.closest('.pin');
+  if(!pn||!me||me.role!=='gm'||tool||pinMoved)return;
+  const n=(S.pins||[]).find(q=>q.id===pn.dataset.pin);
+  if(n)openPin(n.id);
+});
+const up=e=>{
+  if(dragPin){const d=dragPin;dragPin=null;if(!d.began){openPin(d.id);return}pinMoved=true;setTimeout(()=>{pinMoved=false},300);const p=S.pins.find(q=>q.id===d.id);if(p){p.x=d.x;p.y=d.y}sock.emit('gm:pin',{op:'move',pin:{id:d.id,x:d.x,y:d.y}});return}
+  if(dragZone){const d=dragZone;dragZone=null;if(!d.began){openZone(d.id);return}const z=(S.zones||[]).find(q=>q.id===d.id);if(z){z.x=d.x;z.y=d.y}sock.emit('gm:zone',{op:'move',zone:{id:d.id,x:d.x,y:d.y}});return}
+  if(dragTok){const w=wpos(e),id=dragTok.dataset.t;sock.emit(dragTok.dataset.npc?'gm:npc:move':'gm:move',{id,x:w.x,y:w.y});const p=player(id);if(p){p.x=w.x;p.y=w.y}dragTok=null;mapSig='';return}
+  P.delete(e.pointerId);if(P.size<2)pinch=null;
+  if(tap&&e.type==='pointerup'){
+    if(tap.pin)openPin(tap.pin.dataset.pin);
+    else if(tap.zone)openZone(tap.zone.dataset.zone);
+    else if(tool==='zone'&&me.role==='gm'){openZoneNew(wpos(e))}
+    else if(tool==='pin'&&me.role==='gm'){const w=wpos(e);sock.emit('gm:pin',{op:'add',pin:{x:w.x,y:w.y,title:'Novo marcador',desc:''}});setTool('')}
+  }
+  tap=null;pan=null;
+};
+vp.addEventListener('pointerup',up);vp.addEventListener('pointercancel',up);
+vp.addEventListener('wheel',e=>{e.preventDefault();const r=vp.getBoundingClientRect();zoom(e.deltaY<0?1.12:1/1.12,e.clientX-r.left,e.clientY-r.top)},{passive:false});
+function openPin(id){condId=null;mapsOpen=false;const n=S.pins.find(p=>p.id===id),s=$('#sheetbg');if(!n)return;
+  s.innerHTML=me.role==='gm'?`<input id="pt" value="${esc(n.title)}" maxlength="60"><label>Tamanho<select id="psz"><option value="1" ${n.size===1?'selected':''}>Pequeno</option><option value="2" ${(n.size||2)===2?'selected':''}>Médio</option><option value="3" ${n.size===3?'selected':''}>Grande</option></select></label><label>Descrição</label><textarea id="pd" rows="4" maxlength="600">${esc(n.desc)}</textarea><div style="display:flex;gap:8px;margin-top:14px"><button id="ps" style="flex:1">Salvar</button><button id="pr" class="ghost">Remover</button><button id="px" class="ghost">Fechar</button></div>`
+   :`<h2 style="font-size:22px">${esc(n.title)}</h2><p style="white-space:pre-wrap;line-height:1.6">${esc(n.desc)||'—'}</p><button id="px">Fechar</button>`;
+  s.classList.add('open');$('#px').onclick=()=>s.classList.remove('open');
+  if(me.role==='gm'){$('#ps').onclick=()=>{sock.emit('gm:pin',{op:'edit',pin:{id,title:$('#pt').value,desc:$('#pd').value,size:+$('#psz').value}});s.classList.remove('open')};$('#pr').onclick=()=>{sock.emit('gm:pin',{op:'del',pin:{id}});s.classList.remove('open')}}}
+/* ---------- lixeira do mapa (GM): apaga marcadores e zonas, tira NPCs da cena ---------- */
+function lixeira(el){
+  if(el.matches('.pin')){
+    const n=S.pins.find(q=>q.id===el.dataset.pin);
+    if(n&&confirm(`Apagar o marcador "${n.title||'sem nome'}"?`))sock.emit('gm:pin',{op:'del',pin:{id:n.id}});
+  }else if(el.matches('.zl')){
+    const z=(S.zones||[]).find(q=>q.id===el.dataset.zone);
+    if(z&&confirm(`Apagar a zona "${z.name}"?`))sock.emit('gm:zone',{op:'del',zone:{id:z.id}});
+  }else if(el.matches('.tok.npc')){
+    const n=(S.npcs||[]).find(q=>q.id===el.dataset.t);
+    if(n&&confirm(`Tirar "${n.name}" da cena? (o NPC continua salvo na lista)`))sock.emit('gm:npc:scene',{id:n.id,on:false});
+  }
+}
+/* ---------- zonas circulares no mapa ---------- */
+const ZONE_COLORS=['#b22222','#e5e7eb','#374151','#60a5fa','#4d7c0f','#ca8a04'];
+const hexA=(h,a)=>{const n=parseInt(String(h).slice(1),16)||0;return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`};
+function renderZones(m){
+  const el=$('#zones');if(!el)return;
+  el.innerHTML=(S.zones||[]).filter(z=>z.map===m.id).map(z=>`<div class="zone" style="left:${z.x-z.r}px;top:${z.y-z.r}px;width:${z.r*2}px;height:${z.r*2}px;background:${hexA(z.color,.25)};border-color:${hexA(z.color,.8)}"><span class="zl" data-zone="${z.id}">${esc(z.name)}</span></div>`).join('');
+}
+function zoneSwatches(sel){
+  return ZONE_COLORS.map(c=>`<button type="button" data-zc="${c}" style="width:34px;height:34px;padding:0;border-radius:50%;background:${c};border:2px solid ${c===sel?'var(--accent)':'var(--line)'}"></button>`).join('');
+}
+function openZoneNew(w){
+  condId=null;mapsOpen=false;
+  const s=$('#sheetbg');let zc=ZONE_COLORS[0];
+  s.innerHTML=`<h2 style="font-size:20px;margin-bottom:10px">Nova zona</h2>
+    <label>Nome<input id="zn" maxlength="30" placeholder="Zona proibida"></label>
+    <label>Raio (casas, 1 a 30)<input id="zr" type="number" min="1" max="30" value="3"></label>
+    <label>Cor</label><div id="zsw" style="display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 4px">${zoneSwatches(zc)}</div>
+    <div style="display:flex;gap:8px;margin-top:14px"><button id="zs" style="flex:1">Criar zona</button><button id="zx" class="ghost">Cancelar</button></div>`;
+  s.classList.add('open');
+  s.onclick=ev=>{const c=ev.target.dataset.zc;if(c){zc=c;$('#zsw').innerHTML=zoneSwatches(zc)}};
+  $('#zx').onclick=()=>{s.classList.remove('open');s.onclick=null};
+  $('#zs').onclick=()=>{
+    const r=Math.round(+$('#zr').value);
+    if(!Number.isFinite(r)||r<1||r>30)return alert('O raio deve ser entre 1 e 30 casas');
+    sock.emit('gm:zone',{op:'add',zone:{map:S.map.id,x:Math.round(w.x),y:Math.round(w.y),r:r*(S.map.cell||70),name:$('#zn').value.trim()||'Zona',color:zc}});
+    s.classList.remove('open');s.onclick=null;setTool('');
+  };
+}
+function openZone(id){
+  const z=(S.zones||[]).find(q=>q.id===id);if(!z)return;
+  condId=null;mapsOpen=false;
+  const s=$('#sheetbg'),gm=me.role==='gm',casas=(z.r/(S.map.cell||70)).toFixed(1).replace(/\.0$/,'');
+  let c=z.color;
+  s.innerHTML=gm
+    ?`<label>Nome<input id="zn" value="${esc(z.name)}" maxlength="30"></label><label style="margin-top:10px">Cor</label><div id="zsw" style="display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 4px">${zoneSwatches(c)}</div><p class="sm">Raio: ${casas} casas</p><div style="display:flex;gap:8px;margin-top:14px"><button id="zs" style="flex:1">Salvar</button><button id="zd" class="ghost">Excluir</button><button id="zx" class="ghost">Fechar</button></div>`
+    :`<h2 style="font-size:22px">${esc(z.name)}</h2><p class="sm">Raio: ${casas} casas</p><button id="zx">Fechar</button>`;
+  s.classList.add('open');
+  s.onclick=ev=>{const k=ev.target.dataset.zc;if(k&&gm){c=k;$('#zsw').innerHTML=zoneSwatches(c)}};
+  $('#zx').onclick=()=>{s.classList.remove('open');s.onclick=null};
+  if(gm){
+    $('#zs').onclick=()=>{sock.emit('gm:zone',{op:'edit',zone:{id,name:$('#zn').value.trim()||z.name,color:c}});s.classList.remove('open');s.onclick=null};
+    $('#zd').onclick=()=>{if(confirm('Excluir esta zona?')){sock.emit('gm:zone',{op:'del',zone:{id}});s.classList.remove('open');s.onclick=null}};
+  }
+}
+/* ---------- mapas múltiplos (Mestre) ---------- */
+let mapsOpen=false,lastMap=null;
+function loadImg(f,cb){
+  if(!f)return cb(null,0,0);
+  const r=new FileReader();
+  r.onload=()=>{const im=new Image();im.onload=()=>{const sc=Math.min(1,2400/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*sc);c.height=Math.round(im.height*sc);c.getContext('2d').drawImage(im,0,0,c.width,c.height);cb(c.toDataURL('image/jpeg',.85),c.width,c.height)};im.src=r.result};
+  r.readAsDataURL(f);
+}
+function openMaps(){
+  const sb=$('#sheetbg'),m=S.map,maps=S.maps||[];
+  mapsOpen=true;
+  sb.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><h2 style="font-size:20px">Mapas</h2><button class="ghost" id="mx">Fechar</button></div>
+  <div style="margin-top:12px">${maps.map(x=>`<div class="rl"><span>${esc(x.name)}${x.id===m.id?' <b class="red" style="font-weight:400">● ativo</b>':''}</span><span>${x.id===m.id?'':`<button data-msw="${x.id}">Ativar</button> <button class="ghost" data-mdel="${x.id}">×</button>`}</span></div>`).join('')}</div>
+  <div class="rnd"><div class="sm">Novo mapa</div><label>Nome<input id="mN" maxlength="40"></label><label>Imagem (PNG/JPG)<input type="file" id="mf" accept="image/png,image/jpeg"></label><label>Célula (px)<input type="number" id="mc" min="20" max="300" value="70"></label><button class="full" id="mAdd" style="width:100%;margin-top:12px">Criar mapa</button></div>
+  <div class="rnd"><div class="sm">Mapa ativo: ${esc(m.name||'')}</div><label>Célula (px)<input type="number" id="mcA" min="20" max="300" value="${m.cell}"></label><label>Trocar imagem<input type="file" id="mfA" accept="image/png,image/jpeg"></label><button class="full" id="ms" style="width:100%;margin-top:12px">Aplicar</button></div>`;
+  sb.onclick=ev=>{const t=ev.target;
+    if(t.id==='mx'){mapsOpen=false;sb.classList.remove('open');return}
+    if(t.dataset.msw!==undefined){sock.emit('gm:map:switch',{id:t.dataset.msw});return}
+    if(t.dataset.mdel!==undefined){if(confirm('Excluir este mapa?'))sock.emit('gm:map:del',{id:t.dataset.mdel});return}
+    if(t.id==='mAdd'){const name=sb.querySelector('#mN').value.trim()||'Novo mapa',cell=+sb.querySelector('#mc').value||70;
+      loadImg(sb.querySelector('#mf').files[0],(img,w,h)=>sock.emit('gm:map:add',{name,img:img||'',w:w||1200,h:h||800,cell}));return}
+    if(t.id==='ms'){const cell=+sb.querySelector('#mcA').value||m.cell;
+      loadImg(sb.querySelector('#mfA').files[0],(img,w,h)=>{const body={w:m.w,h:m.h,cell};if(img){body.img=img;body.w=w;body.h=h}sock.emit('gm:map',body);setTimeout(fit,200)});return}
+  };
+  sb.classList.add('open');
+}
+$('#ts').onclick=()=>{condId=null;openMaps()};
+/* ---------- utilitários: download de arquivos ---------- */
+function download(text,name){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([text],{type:'application/json'}));
+  a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
+}
+function readFile(f,cb){
+  const r=new FileReader();
+  r.onload=()=>{let d;try{d=JSON.parse(r.result)}catch(x){return cb(null)}cb(d)};
+  r.readAsText(f);
+}
+
+/* ---------- sair da sala ---------- */
+$('#bLeave').onclick=()=>{
+  const gm=me&&me.role==='gm';
+  if(!confirm(gm?'Sair da mesa? A sala continua ativa enquanto houver jogadores online.':'Sair da sala? Sua ficha de sala será removida.'))return;
+  sock.emit('leave',null,()=>{});
+  localStorage.removeItem('sess');
+  me=null;S=null;tab='';drawId=null;condId=null;
+  $('#drawer').classList.remove('open');
+  $('#sheetbg').classList.remove('open');
+  document.body.classList.remove('is-gm');
+  $('#game').hidden=true;$('#lobby').hidden=false;
+  opts();
+};
+
+/* ---------- exportar / importar mesa ---------- */
+function exportMesa(){
+  sock.emit('gm:export',null,r=>{
+    if(!r||!r.ok)return alert('Não foi possível exportar a mesa');
+    download(JSON.stringify(r.data,null,2),'mesa-'+S.code+'.json');
+  });
+}
+$('#bImpMesa').onclick=()=>$('#fMesa').click();
+$('#fMesa').onchange=e=>{
+  const f=e.target.files[0];e.target.value='';if(!f)return;
+  readFile(f,d=>{
+    if(!d)return err('Arquivo JSON inválido');
+    sock.emit('import',d,res=>{
+      if(!res||!res.ok)return err(res?res.error:'Falha ao importar');
+      me={role:'gm',code:res.code,token:res.token};save();enterGame();
+    });
+  });
+};
+
+/* ---------- Meus personagens (fichas salvas neste aparelho) ---------- */
+let pIdx=-1,pDraft=null;
+function showProf(v){$('#pl-view').hidden=v!=='list';$('#pe-view').hidden=v!=='edit'}
+function openProfs(){$('#lobby').hidden=true;$('#game').hidden=true;$('#prof').hidden=false;listProfs()}
+function listProfs(){
+  showProf('list');
+  const l=profs();
+  $('#plist').innerHTML=l.length?l.map((p,i)=>`<div class="rl"><span>${esc(p.name||'Sem nome')}<br><span class="sm">${esc(p.spec||'')}</span></span><span style="white-space:nowrap"><button data-pe="${i}">Editar</button> <button class="ghost" data-px="${i}">Exportar</button> <button class="ghost" data-pd="${i}">×</button></span></div>`).join('')
+    :'<p class="sm">Nenhum personagem salvo neste aparelho</p>';
+}
+function editProf(i,src){
+  pIdx=i;
+  pDraft=src?Object.assign(blank(),src):(i>=0?JSON.parse(JSON.stringify(profs()[i])):blank());
+  $('#pTitle').textContent=i>=0?(pDraft.name||'Ficha'):'Novo personagem';
+  $('#pMsg').textContent='';
+  showProf('edit');
+  sheetForm($('#pedit'),pDraft,s=>{pDraft=s},false);
+}
+function saveProfs(l){localStorage.setItem('profiles',JSON.stringify(l));opts()}
+$('#bPerfis').onclick=openProfs;
+$('#pBack').onclick=()=>{$('#prof').hidden=true;$('#lobby').hidden=false;opts()};
+$('#pNew').onclick=()=>editProf(-1);
+$('#pImp').onclick=()=>$('#fFicha').click();
+$('#fFicha').onchange=e=>{
+  const f=e.target.files[0];e.target.value='';if(!f)return;
+  readFile(f,d=>{
+    if(!d||typeof d!=='object'||!d.attrs)return $('#pMsg').textContent='Arquivo de ficha inválido';
+    editProf(-1,d);
+    $('#pMsg').textContent='Ficha importada. Confira e salve.';
+  });
+};
+$('#pl-view').onclick=e=>{
+  const t=e.target.dataset;
+  if(t.pe!==undefined)return editProf(+t.pe);
+  if(t.px!==undefined){const p=profs()[+t.px];if(p)download(JSON.stringify(p,null,2),'ficha-'+(p.name||'personagem')+'.json');return}
+  if(t.pd!==undefined){
+    if(!confirm('Excluir este personagem deste aparelho?'))return;
+    const l=profs();l.splice(+t.pd,1);saveProfs(l);listProfs();
+  }
+};
+$('#pList').onclick=listProfs;
+$('#pSave').onclick=()=>{
+  if(!pDraft)return;
+  const name=(pDraft.name||'').trim();
+  if(!name)return $('#pMsg').textContent='Dê um nome ao personagem';
+  const l=profs();
+  if(l.some((p,i)=>p.name===name&&i!==pIdx))return $('#pMsg').textContent='Já existe um personagem com esse nome';
+  pDraft.name=name;
+  if(pIdx>=0)l[pIdx]=pDraft;else{l.push(pDraft);pIdx=l.length-1}
+  saveProfs(l);
+  $('#pTitle').textContent=name;
+  $('#pMsg').textContent='Salvo neste aparelho';
+};
+$('#pExp').onclick=()=>{if(pDraft)download(JSON.stringify(pDraft,null,2),'ficha-'+(pDraft.name||'personagem')+'.json')};
+$('#pDel').onclick=()=>{
+  if(pIdx<0)return listProfs();
+  if(!confirm('Excluir este personagem deste aparelho?'))return;
+  const l=profs();l.splice(pIdx,1);saveProfs(l);listProfs();
+};
+
+/* ---------- régua de medição (mapa) ---------- */
+function drawRuler(){
+  const l=$('#rline'),h=$('#rhalo'),t=$('#rt');
+  if(!l||!h||!t)return;
+  if(!ruler||!ruler.a||!ruler.b||!S){l.style.display=h.style.display='none';t.hidden=true;return}
+  const ax=ruler.a.x*V.k+V.x,ay=ruler.a.y*V.k+V.y,bx=ruler.b.x*V.k+V.x,by=ruler.b.y*V.k+V.y;
+  [l,h].forEach(e=>{e.setAttribute('x1',ax);e.setAttribute('y1',ay);e.setAttribute('x2',bx);e.setAttribute('y2',by);e.style.display=''});
+  const cell=(S.map&&S.map.cell)||70;
+  const casas=Math.hypot(ruler.b.x-ruler.a.x,ruler.b.y-ruler.a.y)/cell;
+  t.hidden=false;t.textContent=casas.toFixed(1).replace(/\.0$/,'')+' casas';
+  t.style.left=bx+'px';t.style.top=by+'px';
+}
+
+</script>
+</script>
+</body>
+</html>
